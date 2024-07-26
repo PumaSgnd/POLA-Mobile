@@ -1,0 +1,195 @@
+List<Map<String, dynamic>> filteredLaporan = [];
+
+  void filterData(String keyword) {
+    setState(() {
+      filteredLaporan = laporanPemasangan
+          .where((item) =>
+              item['nama_agen']
+                  .toString()
+                  .toLowerCase()
+                  .contains(keyword.toLowerCase()) ||
+              item['no_spk']
+                  .toString()
+                  .toLowerCase()
+                  .contains(keyword.toLowerCase()))
+          .toList();
+    });
+  }
+
+  Future<void> fetchData() async {
+    try {
+      final response =
+          await http.get(Uri.parse('http://localhost/fms/api/spk_api/get_all'));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        final List<dynamic> data = jsonResponse['data'];
+
+        setState(() {
+          laporanPemasangan = data.map((item) {
+            return {
+              'no_spk': item['no_spk'],
+              'nama_agen': item['nama_agen'],
+              'tid': item['tid'],
+              'kota': item['kota'],
+              'kanwil': item['kanwil'],
+              'spk_diterima': '${item['tgl_spk']} ${item['jam_spk']}',
+              'selesai_pemasangan':
+                  '${item['tgl_pemasangan']} ${item['jam_pemasangan']}',
+              'catatan': item['catatan'],
+            };
+          }).toList();
+          filteredLaporan = laporanPemasangan;
+        });
+        print(data);
+      } else {
+        throw Exception('Gagal mengambil data dari API');
+      }
+    } catch (e) {
+      print('Error fetching data: $e');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
+  }
+
+  Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    onChanged: filterData,
+                    decoration: InputDecoration(
+                      labelText: 'Search',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    // Export functionality here
+                  },
+                  child: Text('Export'),
+                ),
+              ],
+            ),
+          ),
+
+DataCell(
+                                  //   PopupMenuButton<String>(
+                                  //     icon: const Icon(Icons.more_vert),
+                                  //     onSelected: (value) {
+                                  //       // Handle the menu item click
+                                  //       if (value == 'Detail') {
+                                  //         // Navigator.push(
+                                  //         //   context,
+                                  //         //   MaterialPageRoute(
+                                  //         //     builder: (context) => Detail(
+                                  //         //       laporan: laporan,
+                                  //         //     ),
+                                  //         //   ),
+                                  //         // );
+                                  //       } else if (value == 'Edit') {
+                                  //         // Navigator.push(
+                                  //         //   context,
+                                  //         //   MaterialPageRoute(
+                                  //         //     builder: (context) => Edit(
+                                  //         //       laporan: laporan,
+                                  //         //     ),
+                                  //         //   ),
+                                  //         // );
+                                  //       }
+                                  //     },
+                                  //     itemBuilder: (BuildContext context) =>
+                                  //         <PopupMenuEntry<String>>[
+                                  //       const PopupMenuItem<String>(
+                                  //         value: 'Detail',
+                                  //         child: Text('Detail'),
+                                  //       ),
+                                  //       const PopupMenuItem<String>(
+                                  //         value: 'Edit',
+                                  //         child: Text('Edit'),
+                                  //       ),
+                                  //     ],
+                                  //   ),
+                                  // ),
+
+
+  //non-fungsinonal
+  // String calculateDuration(String startDateTime, String endDateTime) {
+  //   DateTime start = DateTime.parse(startDateTime);
+  //   DateTime end = DateTime.parse(endDateTime);
+  //   Duration duration = end.difference(start);
+  //   return '${duration.inHours} jam';
+  // }
+
+  // void showDetailDialog(Map<String, dynamic> laporan) {
+  //   String durasiPemasangan = calculateDuration(
+  //       laporan['spk_diterima'], laporan['selesai_pemasangan']);
+  //   showDialog(
+  //     context: context,
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         title: const Text('Detail Laporan'),
+  //         content: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             Text('No SPK: ${laporan['no_spk']}'),
+  //             Text('Nama Agen: ${laporan['nama_agen']}'),
+  //             Text('Serial Number: ${laporan['serialnumber']}'),
+  //             Text('Kanwil: ${laporan['kanwil']}'),
+  //             Row(
+  //               children: [
+  //                 const Text('SPK Diterima: '),
+  //                 Text(
+  //                   DateFormat('yyyy-MM-dd HH:mm:ss').format(
+  //                     DateTime.parse(laporan['spk_diterima']),
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //             Row(
+  //               children: [
+  //                 const Text('Selesai Pemasangan: '),
+  //                 Text(
+  //                   DateFormat('yyyy-MM-dd HH:mm:ss').format(
+  //                     DateTime.parse(laporan['selesai_pemasangan']),
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //             Text('Durasi Pemasangan: $durasiPemasangan'),
+  //           ],
+  //         ),
+  //         actions: [
+  //           ElevatedButton(
+  //             onPressed: () {
+  //               Navigator.of(context).pop();
+  //             },
+  //             child: const Text('Tutup'),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
+
+  List<Laporan> tempAgents = dummyData.map((item) {
+        return Laporan(
+          isAktif: item['is_aktif'],
+          noSPK: item['no_spk'],
+          agentName: item['nama_agen'],
+          serialNumber: item['serialnumber'],
+          kota: item['kota'],
+          kanwil: item['kanwil'],
+          spkDiterima: '${item['tgl_spk']} ${item['jam_spk']}',
+            selesaiPemasangan:
+                '${item['tgl_pemasangan']} ${item['jam_pemasangan']}',
+        );
+      }).toList();

@@ -1,0 +1,38 @@
+name: pola
+description: A new Flutter project.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.1.0-262.2.beta <4.0.0'
+
+dependencies:
+  file_picker: ^5.5.0
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  intl: ^0.19.0
+  image_picker: ^1.0.2
+  location: ^6.0.0
+  path: ^1.8.3
+  sqflite: ^2.3.0
+  io: ^1.0.4
+  autocomplete_textfield: ^2.0.1
+  google_maps_flutter: ^2.6.0
+  barcode_scan2: ^4.3.1
+  syncfusion_flutter_datagrid: ^26.1.41
+  curved_navigation_bar: ^1.0.6
+  flutter_native_splash: ^2.4.1
+  
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  json_serializable: ^6.1.4
+
+flutter:
+  uses-material-design: true
+  assets:
+  - assets/logo.png
+  - assets/splash.png
+
