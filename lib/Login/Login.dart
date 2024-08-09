@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../Apiservice.dart';
 import '../Menu/MenuHome.dart';
 import '../user/User.dart';
 
@@ -20,60 +21,29 @@ class _LoginState extends State<Login> {
   bool isLoading = false;
   TextEditingController usernameController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
-  Future<void> login() async {
-    final String username = usernameController.text;
-    final String password = passwordController.text;
+  final ApiService _apiService = ApiService();
 
-    final String apiUrl = 'http://192.168.137.1/fms/api/user_api/login';
-    // final String apiUrl = 'http://10.0.0.2:8000/fms/api/user_api/login';
-
-    setState(() {
-      isLoading = true;
-    });
+  void _login() async {
+    final username = usernameController.text;
+    final password = passwordController.text;
 
     try {
-      final queryParameters = {
-        'username': 'one',
-        'password': 'two',
-      };
+      final result = await _apiService.login(username, password);
 
-      final uri = Uri.https('192.168.137.1', '/fms/api/user_api/login', queryParameters);
-      final response = await http.get(uri);
-
-      // final http.Response response = await http.get(
-      //   Uri.parse(apiUrl),
-      //   // body: jsonEncode({'username': username, 'password': password}),
-      //   headers: {'Content-Type': 'application/json'},
-      // );
-
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      final Map<String, dynamic> data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && data['status']) {
-        if (data.containsKey('data')) {
-          final User user = User.fromJson(data['data']);
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MenuHome(userData: user),
-            ),
-          );
-        } else {
-          _showDialog('Login Failed', 'Invalid response data.');
-        }
+      if (result['status']) {
+        final User user = result['data'];
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MenuHome(userData: user),
+          ),
+        );
       } else {
-        _showDialog(
-            'Login Failed', data['message'] ?? 'Invalid username or password.');
+        _showDialog('Login Failed',
+            result['message'] ?? 'Invalid username or password.');
       }
     } catch (e) {
-      _showDialog('Error', 'An error occurred: $e');
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
+      _showDialog('Login Failed', 'An error occurred while logging in.');
     }
   }
 
@@ -180,41 +150,9 @@ class _LoginState extends State<Login> {
                           });
                         },
                       ),
-                      border: InputBorder.none, // Remove default border
+                      border: InputBorder.none,
                     ),
                   ),
-                ),
-                SizedBox(height: size.height * 0.021),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    "Lupa Kata Sandi?",
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall!
-                        .copyWith(color: Colors.blue),
-                  ),
-                ),
-                Row(
-                  children: [
-                    Checkbox(
-                      value: check,
-                      activeColor: Colors.black,
-                      onChanged: (bool? value) {
-                        setState(() {
-                          check = value!;
-                        });
-                      },
-                    ),
-                    Flexible(
-                      // Use Flexible widget
-                      child: Text(
-                        "Ingat saya dan biarkan saya tetap masuk",
-                        style: Theme.of(context).textTheme.titleSmall,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
                 ),
                 SizedBox(height: size.height * 0.029),
                 ElevatedButton(
@@ -222,15 +160,7 @@ class _LoginState extends State<Login> {
                     minimumSize: const Size(200, 50),
                     backgroundColor: const Color(0xFF1F2855),
                   ),
-                  // onPressed: () {
-                  //   Navigator.pushReplacement(
-                  //     context,
-                  //     MaterialPageRoute(
-                  //       builder: (context) => const MenuHome(),
-                  //     ),
-                  //   );
-                  // },
-                  onPressed: login,
+                  onPressed: _login,
                   child: const Text(
                     "Masuk",
                     style: TextStyle(color: Colors.white, fontSize: 18),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:path/path.dart' as path;
+import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -25,7 +27,7 @@ class _InputSPKState extends State<InputSPK> {
   final TextEditingController teleponAgenController = TextEditingController();
   final TextEditingController tidController = TextEditingController();
   final TextEditingController midController = TextEditingController();
-  String selectedKota = 'Pilih Kota';
+  String? selectedKota;
   String selectedKanwil = 'Pilih Kanwil';
   DateTime selectedDate = DateTime.now();
   String selectedFile = '';
@@ -47,11 +49,18 @@ class _InputSPKState extends State<InputSPK> {
   }
 
   String? _fileName;
+  bool dataFetched = false;
 
   @override
   void initState() {
     super.initState();
     initializeDateFormatting('id_ID', null).then((_) {});
+    fetchKotaList();
+    fetchKanwilList().then((_) {
+      setState(() {
+        dataFetched = true;
+      });
+    });
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -61,10 +70,23 @@ class _InputSPKState extends State<InputSPK> {
       firstDate: DateTime(2015),
       lastDate: DateTime(2101),
     );
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
+    if (picked != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(selectedDate),
+      );
+      if (pickedTime != null) {
+        setState(() {
+          selectedDate = DateTime(
+            picked.year,
+            picked.month,
+            picked.day,
+            pickedTime.hour,
+            pickedTime.minute,
+            selectedDate.second,
+          );
+        });
+      }
     }
   }
 
@@ -90,6 +112,125 @@ class _InputSPKState extends State<InputSPK> {
       return 'File wajib diunggah';
     }
     return null;
+  }
+
+  void sendHttpRequestWithBody() async {
+    final String baseUrl = "http://10.20.20.195/fms/api/spk_api/save";
+
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
+
+      request.fields['no_spk'] = nomorJoController.text;
+      request.fields['nama_agen'] = namaAgenController.text;
+      request.fields['alamat_agen'] = alamatAgenController.text;
+      request.fields['telepon_agen'] = teleponAgenController.text;
+      request.fields['kota'] = selectedKota!;
+      if (selectedKanwil != null && selectedKanwil.contains(':')) {
+        final parts = selectedKanwil.split(':');
+        final idKanwil = parts[0];
+        request.fields['id_kanwil'] = idKanwil;
+      }
+      request.fields['tid'] = tidController.text;
+      request.fields['mid'] = midController.text;
+      request.fields['tanggal'] =
+          DateFormat("yyyy-MM-dd HH:mm:ss").format(selectedDate);
+      request.fields['created_by'] = widget.userData!.username;
+
+      print(request.fields['created_by']);
+      // print('Username: ${widget.userData!.username}');
+
+      print('namaaaaaaaa' + selectedFile);
+      if (selectedFile.isNotEmpty) {
+        var file = File(selectedFile);
+        var fileName = path.basename(file.path);
+
+        print('nama file' + fileName);
+        request.files.add(
+          http.MultipartFile(
+            'dok_spk',
+            file.readAsBytes().asStream(),
+            file.lengthSync(),
+            filename: fileName,
+          ),
+        );
+      }
+
+      var response = await request.send();
+      final responseString = await response.stream.bytesToString();
+
+      print('Response body: $responseString');
+
+      if (response.statusCode == 200) {
+        var responseData = json.decode(responseString);
+
+        if (responseData['success'] == true) {
+          print('SPK berhasil disimpan');
+        } else {
+          print('SPK gagal disimpan: ${responseData['err_msg']}');
+        }
+      } else {
+        print('Request failed with status: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('An error occurred: $error');
+    }
+  }
+
+  Future<void> fetchKotaList() async {
+    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+
+    try {
+      final response = await http.get(Uri.parse(baseUrl));
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['status'] == true) {
+          final List<dynamic> kotaData = responseData['data'];
+          kotaList = kotaData.map<String>((item) {
+            return "${item['city_name']}";
+          }).toList();
+        } else {
+          print("Error fetching Kanwil data");
+        }
+        print('Kota data: $kotaList');
+      } else {
+        print("Error fetching Kota data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kota data: $error');
+    }
+  }
+
+  Future<void> fetchKanwilList() async {
+    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['status'] == true) {
+          final List<dynamic> kanwilData = responseData['data'];
+          kanwilList = kanwilData.map<String>((item) {
+            final String id = item['id'].toString();
+            final String nama = item['nama'];
+            return "$id:$nama";
+          }).toList();
+        } else {
+          print("Error fetching Kanwil data");
+        }
+        print('Kanwil data: $kanwilList');
+      } else if (response.statusCode == 404) {
+        final errorData = json.decode(response.body);
+        print("Error fetching Kanwil data: ${errorData['message']}");
+      } else {
+        print("Error fetching Kanwil data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kanwil data: $error');
+    }
   }
 
   @override
@@ -126,10 +267,21 @@ class _InputSPKState extends State<InputSPK> {
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('Nomor JO'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
                         TextFormField(
                           controller: nomorJoController,
                           decoration: const InputDecoration(
-                            labelText: 'Nomor JO',
                             border: OutlineInputBorder(
                               borderRadius:
                                   BorderRadius.all(Radius.circular(8.0)),
@@ -143,54 +295,97 @@ class _InputSPKState extends State<InputSPK> {
                           },
                         ),
                         const SizedBox(height: 15),
-                        TextFormField(
-                          controller: namaAgenController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nama Agen',
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(8.0)),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('Nama Agen'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 5.0),
+                        Container(
+                          height: 55,
+                          child: TextFormField(
+                            controller: namaAgenController,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(8.0)),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value!.isEmpty) {
+                                return 'Nama Agen wajib diisi';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (value) {
-                            if (value!.isEmpty) {
-                              return 'Nama Agen wajib diisi';
-                            }
-                            return null;
-                          },
                         ),
                         const SizedBox(height: 15),
-                        TextFormField(
-                          controller: alamatAgenController,
-                          decoration: const InputDecoration(
-                            labelText: 'Alamat Agen',
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(8.0)),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('Alamat Agen'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 5.0),
+                        Container(
+                          child: TextFormField(
+                            controller: alamatAgenController,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(8.0)),
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                  vertical: 20.0,
+                                  horizontal:
+                                      12.0), // Ubah ukuran padding di sini
+                            ),
+                            maxLines: null,
+                            minLines: 1,
+                            validator: (value) {
+                              if (value!.isEmpty) {
+                                return 'Alamat Agen wajib diisi';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (value) {
-                            if (value!.isEmpty) {
-                              return 'Alamat Agen wajib diisi';
-                            }
-                            return null;
-                          },
                         ),
                         const SizedBox(height: 15),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('Telepon Agen'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
                         Row(
                           children: [
                             Expanded(
                               child: TextFormField(
                                 controller: teleponAgenController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Telepon Agen',
                                   border: OutlineInputBorder(
                                     borderRadius:
                                         BorderRadius.all(Radius.circular(8.0)),
                                   ),
                                   prefixText: '+62 ',
-                                  contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 20),
+                                  contentPadding: EdgeInsets.only(
+                                      top: 10, bottom: 20, left: 10),
                                 ),
                                 validator: (value) {
                                   if (value!.isEmpty) {
@@ -203,10 +398,21 @@ class _InputSPKState extends State<InputSPK> {
                           ],
                         ),
                         const SizedBox(height: 15),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('TID'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
                         TextFormField(
                           controller: tidController,
                           decoration: const InputDecoration(
-                            labelText: 'TID',
                             border: OutlineInputBorder(
                               borderRadius:
                                   BorderRadius.all(Radius.circular(8.0)),
@@ -220,10 +426,21 @@ class _InputSPKState extends State<InputSPK> {
                           },
                         ),
                         const SizedBox(height: 15),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('MID'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
                         TextFormField(
                           controller: midController,
                           decoration: const InputDecoration(
-                            labelText: 'MID',
                             border: OutlineInputBorder(
                               borderRadius:
                                   BorderRadius.all(Radius.circular(8.0)),
@@ -237,42 +454,84 @@ class _InputSPKState extends State<InputSPK> {
                           },
                         ),
                         const SizedBox(height: 15),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('Pilih Kota'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
                         Container(
                           width: double.infinity,
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButtonFormField<String?>(
-                              value: selectedKota,
-                              onChanged: (String? newValue) {
-                                setState(() {
-                                  selectedKota = newValue!;
-                                });
-                              },
-                              items: <String?>[
-                                'Pilih Kota',
-                                ...kotaList
-                              ].map<DropdownMenuItem<String?>>((String? value) {
-                                return DropdownMenuItem<String?>(
-                                  value: value,
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(value ?? ''),
+                          child: DropdownSearch<String>(
+                            popupProps: PopupProps.dialog(
+                              showSelectedItems: true,
+                              showSearchBox: true,
+                              searchFieldProps: TextFieldProps(
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8.0),
                                   ),
-                                );
-                              }).toList(),
-                              decoration: InputDecoration(
-                                hintText: 'Pilih Kota',
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 10),
+                                ),
+                              ),
+                              dialogProps: DialogProps(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                ),
+                              ),
+                            ),
+                            items: [
+                              'Pilih Kota',
+                              ...kotaList,
+                            ], // Include placeholder in the items list
+                            dropdownDecoratorProps: DropDownDecoratorProps(
+                              dropdownSearchDecoration: InputDecoration(
+                                hintText: "Pilih Kota",
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8.0),
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 10),
+                                hintStyle: const TextStyle(
+                                  color: Colors.black,
+                                ),
                               ),
-                              isDense: true,
-                              isExpanded: true,
                             ),
+                            onChanged: (String? newValue) {
+                              if (newValue != null &&
+                                  newValue != 'Pilih Kota') {
+                                setState(() {
+                                  selectedKota = newValue;
+                                });
+                              } else {
+                                setState(() {
+                                  selectedKota = null;
+                                });
+                              }
+                            },
+                            selectedItem: selectedKota ?? 'Pilih Kota',
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 15),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('Pilih Kanwil'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
                         Container(
                           width: double.infinity,
                           child: DropdownButtonHideUnderline(
@@ -296,12 +555,22 @@ class _InputSPKState extends State<InputSPK> {
                                   value: value,
                                   child: Align(
                                     alignment: Alignment.centerLeft,
-                                    child: Text(namaKanwil ?? ''),
+                                    child: Text(
+                                      namaKanwil ?? '',
+                                      style: TextStyle(
+                                        fontWeight: value == 'Pilih Kanwil'
+                                            ? FontWeight.normal
+                                            : FontWeight.normal,
+                                        color: value == 'Pilih Kanwil'
+                                            ? Colors.black
+                                            : Colors
+                                                .black, // Optional: Different color for the placeholder
+                                      ),
+                                    ),
                                   ),
                                 );
                               }).toList(),
                               decoration: InputDecoration(
-                                hintText: 'Pilih Kanwil',
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8.0)),
                                 contentPadding: const EdgeInsets.symmetric(
@@ -315,6 +584,18 @@ class _InputSPKState extends State<InputSPK> {
                         const SizedBox(
                           height: 15,
                         ),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('Tanggal'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
                         Container(
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey),
@@ -331,11 +612,6 @@ class _InputSPKState extends State<InputSPK> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
-                                        "Tanggal :",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold),
-                                      ),
                                       Text(
                                         DateFormat('dd MMMM yyyy', 'id_ID')
                                             .format(selectedDate),
@@ -357,6 +633,18 @@ class _InputSPKState extends State<InputSPK> {
                         const SizedBox(
                           height: 15,
                         ),
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text('Dokumen JO'),
+                            SizedBox(width: 5),
+                            Text(
+                              '*',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
                         Container(
                           decoration: BoxDecoration(
                             border: Border.all(
@@ -424,6 +712,7 @@ class _InputSPKState extends State<InputSPK> {
                           children: [
                             ElevatedButton(
                               onPressed: () {
+                                sendHttpRequestWithBody();
                                 if (_formKey.currentState!.validate() &&
                                     _fileName != null &&
                                     _fileName!.isNotEmpty) {

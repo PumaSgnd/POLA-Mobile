@@ -1,4 +1,6 @@
 // ignore_for_file: cast_from_null_always_fails, use_build_context_synchronously
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -41,135 +43,114 @@ class LaporanWDPage extends State<LaporanWD> {
   List<DataPenarikan> filteredPenarikanList = [];
   String? selectedKanwil;
   String? selectedKota;
+  List<String> kanwilList = [];
+  List<String> kotaList = [];
   String? selectedStatus;
   String _searchQuery = '';
 
+  Future<void> fetchKanwilList() async {
+    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kanwilData = responseData['data'];
+          setState(() {
+            kanwilList = kanwilData.map<String>((item) {
+              return item['nama'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kanwil data");
+        }
+      } else {
+        print("Error fetching Kanwil data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kanwil data: $error');
+    }
+  }
+
+  Future<void> fetchKotaList() async {
+    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+    try {
+      final response = await http.get(Uri.parse(baseUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kotaData = responseData['data'];
+          setState(() {
+            kotaList = kotaData.map<String>((item) {
+              return item['city_name'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kota data");
+        }
+      } else {
+        print("Error fetching Kota data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kota data: $error');
+    }
+  }
+
+  void filterAgents() {
+    setState(() {
+      filteredPenarikanList = penarikanList.where((agent) {
+        final query = _searchQuery.toLowerCase();
+        return (selectedKanwil == null || agent.kanwil == selectedKanwil) &&
+            (selectedKota == null || agent.kota == selectedKota) &&
+            (agent.namaAgen.toLowerCase().contains(query) ||
+                agent.kota.toLowerCase().contains(query) ||
+                agent.kanwil.toLowerCase().contains(query) ||
+                agent.noSPKPenarikan.toLowerCase().contains(query) ||
+                agent.serialNumber.toLowerCase().contains(query));
+      }).toList();
+    });
+  }
+
   Future<void> fetchData() async {
     try {
-      // Dummy data for testing
-      final List<Map<String, dynamic>> dummyData = [
-        {
-          'no_spkPenarikan': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-          'tgl_penarikan': '2023-08-10',
-          'jam_penarikan': '10:00:00',
-        },
-        {
-          'no_spkPenarikan': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-          'tgl_penarikan': '2023-08-10',
-          'jam_penarikan': '10:00:00',
-        },
-        {
-          'no_spkPenarikan': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'sim_card': 'SIM001',
-          'status': 'Sudah Pasang',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-          'tgl_penarikan': '2023-08-10',
-          'jam_penarikan': '10:00:00',
-        },
-        {
-          'no_spkPenarikan': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-          'tgl_penarikan': '2023-08-10',
-          'jam_penarikan': '10:00:00',
-        },
-        {
-          'no_spkPenarikan': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-          'tgl_penarikan': '2023-08-10',
-          'jam_penarikan': '10:00:00',
-        },
-        {
-          'no_spkPenarikan': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-          'tgl_penarikan': '2023-08-10',
-          'jam_penarikan': '10:00:00',
-        },
-        {
-          'no_spkPenarikan': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-          'tgl_penarikan': '2023-08-10',
-          'jam_penarikan': '15:00:00',
-        },
-        {
-          'no_spkPenarikan': 'SPK001',
-          'nama_agen': 'Agen 2',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-          'tgl_penarikan': '2023-08-10',
-          'jam_penarikan': '10:00:00',
-        },
-        // Add more data as needed
-      ];
+      final response = await http.get(Uri.parse(
+          'http://10.20.20.195/fms/api/penarikan_api/get_all_laporan'));
 
-      List<DataPenarikan> tempDataPenarikan = dummyData.map((item) {
-        return DataPenarikan(
-          noSPKPenarikan: item['no_spkPenarikan'],
-          namaAgen: item['nama_agen'],
-          kota: item['kota'],
-          kanwil: item['kanwil'],
-          serialNumber: item['serialnumber'],
-          tanggalPemasangan: DateTime.parse(
-              '${item['tgl_pemasangan']} ${item['jam_pemasangan']}'),
-          tanggalPenarikan: DateTime.parse(
-              '${item['tgl_penarikan']} ${item['jam_penarikan']}'),
-        );
-      }).toList();
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        final List<dynamic> data = jsonResponse['data'];
+        print('Data received: $data');
 
-      setState(() {
-        penarikanList = tempDataPenarikan;
-
-        // Apply search filter
-        filteredPenarikanList = penarikanList.where((DataPenarikan) {
-          final searchLower = _searchQuery.toLowerCase();
-          return DataPenarikan.noSPKPenarikan.toLowerCase().contains(searchLower) ||
-              DataPenarikan.namaAgen.toLowerCase().contains(searchLower) ||
-              DataPenarikan.kota.toLowerCase().contains(searchLower) ||
-              DataPenarikan.kanwil.toLowerCase().contains(searchLower) ||
-              DataPenarikan.serialNumber.toLowerCase().contains(searchLower);
-        }).toList();
-      });
+        setState(() {
+          penarikanList.clear();
+          for (var item in data) {
+            try {
+              penarikanList.add(
+                DataPenarikan(
+                  noSPKPenarikan: item['no_spk_penarikan'] ?? '',
+                  namaAgen: item['nama_agen'] ?? '',
+                  kota: item['kota'] ?? '',
+                  kanwil: item['kanwil'] ?? '',
+                  serialNumber: item['serial_number'] ?? '',
+                  tanggalPemasangan:
+                      DateTime.parse(item['tanggal_pemasangan'] ?? ''),
+                  tanggalPenarikan:
+                      DateTime.parse(item['tanggal_penarikan'] ?? ''),
+                ),
+              );
+            } catch (e) {
+              print('Error parsing item: $item - $e');
+            }
+          }
+          filterAgents();
+        });
+      } else {
+        print('Error: Status code ${response.statusCode}');
+        print('Response body: ${response.body}');
+        throw Exception('Gagal mengambil data dari API');
+      }
     } catch (e) {
-      print('Error fetching data: $e');
+      print('Exception caught: $e');
     }
   }
 
@@ -179,6 +160,8 @@ class LaporanWDPage extends State<LaporanWD> {
     initializeDateFormatting('id_ID', null).then((_) {
       fetchData();
     });
+    fetchKanwilList();
+    fetchKotaList();
   }
 
   Future<bool> _onWillPop() async {
@@ -233,54 +216,58 @@ class LaporanWDPage extends State<LaporanWD> {
                       Expanded(
                         child: Padding(
                           padding:
-                              const EdgeInsets.only(right: 15.0, left: 5.0),
+                              const EdgeInsets.only(right: 10.0, left: 5.0),
                           child: DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'Kanwil (Semua)',
                               border: OutlineInputBorder(),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'kanwil1',
-                                child: Text('Kanwil 1'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'kanwil2',
-                                child: Text('Kanwil 2'),
-                              ),
-                            ],
+                            items: kanwilList.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 selectedKanwil = value;
+                                filterAgents();
                               });
                             },
+                            value: selectedKanwil,
                           ),
                         ),
                       ),
                       Expanded(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.only(left: 15.0, right: 5.0),
+                          padding: const EdgeInsets.only(left: 5.0, right: 5.0),
                           child: DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'Kota (Semua)',
                               border: OutlineInputBorder(),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'kota1',
-                                child: Text('Kota 1'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'kota2',
-                                child: Text('Kota 2'),
-                              ),
-                            ],
+                            items: kotaList.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Container(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 135.0),
+                                  child: Text(
+                                    value,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 selectedKota = value;
+                                filterAgents();
                               });
                             },
+                            value: selectedKota,
                           ),
                         ),
                       ),
@@ -323,7 +310,7 @@ class LaporanWDPage extends State<LaporanWD> {
                       onChanged: (value) {
                         setState(() {
                           _searchQuery = value;
-                          fetchData();
+                          filterAgents();
                         });
                       },
                     ),
@@ -354,47 +341,57 @@ class LaporanWDPage extends State<LaporanWD> {
                   PaginatedDataTable(
                     columns: const [
                       DataColumn(
-                          label: Text(
-                        'NOMOR JO PENARIKAN',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      )),
+                        label: Text(
+                          'NOMOR JO PENARIKAN',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                       DataColumn(
-                          label: Text(
-                        'AGEN',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      )),
+                        label: Text(
+                          'AGEN',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                       DataColumn(
-                          label: Text(
-                        'KOTA',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      )),
+                        label: Text(
+                          'KOTA',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                       DataColumn(
-                          label: Text(
-                        'KANWIL',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      )),
+                        label: Text(
+                          'KANWIL',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                       DataColumn(
-                          label: Text(
-                        'SERIAL NUMBER',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      )),
+                        label: Text(
+                          'SERIAL NUMBER',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                       DataColumn(
-                          label: Text(
-                        'TANGGAL PEMASANGAN',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      )),
+                        label: Text(
+                          'TANGGAL PEMASANGAN',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                       DataColumn(
-                          label: Text(
-                        'TANGGAL PENARIKAN',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      )),
+                        label: Text(
+                          'TANGGAL PENARIKAN',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                       DataColumn(
-                          label: Text(
-                        'AKSI',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      )),
+                        label: Text(
+                          'AKSI',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
                     ],
-                    source: PenarikanDataSource(filteredPenarikanList, context),
+                    source: filteredPenarikanList.isEmpty
+                        ? NoDataDataSource(8)
+                        : PenarikanDataSource(filteredPenarikanList, context),
                     rowsPerPage: 5,
                     columnSpacing: 16.0,
                     horizontalMargin: 10.0,
@@ -432,7 +429,8 @@ class PenarikanDataSource extends DataTableSource {
         children: [
           const SizedBox(height: 8.0),
           Text(
-            DateFormat('dd MMMM yyyy', 'id_ID').format(penarikan.tanggalPemasangan),
+            DateFormat('dd MMMM yyyy', 'id_ID')
+                .format(penarikan.tanggalPemasangan),
           ),
           Text(
             DateFormat('HH:mm:ss').format(penarikan.tanggalPemasangan),
@@ -444,7 +442,8 @@ class PenarikanDataSource extends DataTableSource {
         children: [
           const SizedBox(height: 8.0),
           Text(
-            DateFormat('dd MMMM yyyy', 'id_ID').format(penarikan.tanggalPenarikan),
+            DateFormat('dd MMMM yyyy', 'id_ID')
+                .format(penarikan.tanggalPenarikan),
           ),
           Text(
             DateFormat('HH:mm:ss').format(penarikan.tanggalPenarikan),
@@ -460,14 +459,18 @@ class PenarikanDataSource extends DataTableSource {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const DetailPage(detailId: '', userData: null,),
+                  builder: (context) => const DetailPage(
+                    detailId: '',
+                    userData: null,
+                  ),
                 ),
               );
             } else if (value == 'Edit') {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const EditAgen(userData: null,
+                  builder: (context) => const EditAgen(
+                    userData: null,
                   ),
                 ),
               );
@@ -493,6 +496,42 @@ class PenarikanDataSource extends DataTableSource {
 
   @override
   int get rowCount => penarikanList.length;
+
+  @override
+  int get selectedRowCount => 0;
+}
+
+class NoDataDataSource extends DataTableSource {
+  final int columnCount;
+
+  NoDataDataSource(this.columnCount);
+
+  @override
+  DataRow? getRow(int index) {
+    return DataRow(
+      cells: List<DataCell>.generate(columnCount, (colIndex) {
+        if (colIndex == 0) {
+          return const DataCell(
+            Center(
+              child: Text(
+                'No data available in table',
+                style:
+                    TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+              ),
+            ),
+          );
+        } else {
+          return const DataCell(Text('')); // Empty cells
+        }
+      }),
+    );
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+
+  @override
+  int get rowCount => 1;
 
   @override
   int get selectedRowCount => 0;

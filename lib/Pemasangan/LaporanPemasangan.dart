@@ -28,6 +28,7 @@ class Laporan {
   final DateTime spkDiterima;
   final DateTime selesaiPemasangan;
   final String catatan;
+  final String status;
 
   Laporan({
     required this.isAktif,
@@ -39,6 +40,7 @@ class Laporan {
     required this.spkDiterima,
     required this.selesaiPemasangan,
     this.catatan = '',
+    required this.status,
   });
 }
 
@@ -47,75 +49,151 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
   List<Laporan> filteredLaporanPemasangan = [];
   String? selectedKanwil;
   String? selectedKota;
+  List<String> kanwilList = [];
+  List<String> kotaList = [];
   String? selectedStatus;
   DateTime? startDate;
   DateTime? endDate;
   String _searchQuery = '';
+  List<Laporan> filteredLaporanByKanwilAndKota = [];
+
+  final Map<String, String> statusMapping = {
+    'done': 'Sudah Pasang',
+    'on progress': 'Sudah Pasang',
+    'pending': 'Sudah Pasang',
+    'failed': 'Sudah Pasang',
+  };
 
   Future<void> fetchData() async {
     try {
-      // Dummy data for testing
-      final List<Map<String, dynamic>> dummyData = [
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'serialnumber': 'SN001',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'tgl_spk': '2023-07-01',
-          'jam_spk': '08:00:00',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-        },
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK002',
-          'nama_agen': 'Agen 2',
-          'serialnumber': 'SN002',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 2',
-          'tgl_spk': '2023-07-02',
-          'jam_spk': '09:00:00',
-          'tgl_pemasangan': '2023-07-03',
-          'jam_pemasangan': '11:00:00',
-        },
-        // Add more data as needed
-      ];
-      List<Laporan> tempLaporan = dummyData.map((item) {
-        return Laporan(
-          isAktif: item['is_aktif'],
-          noSPK: item['no_spk'],
-          agentName: item['nama_agen'],
-          serialNumber: item['serialnumber'],
-          kota: item['kota'],
-          kanwil: item['kanwil'],
-          spkDiterima: DateTime.parse('${item['tgl_spk']} ${item['jam_spk']}'),
-          selesaiPemasangan: DateTime.parse(
-              '${item['tgl_pemasangan']} ${item['jam_pemasangan']}'),
-          catatan: item.containsKey('catatan') ? item['catatan'] : '',
-        );
-      }).toList();
+      // Fetch data from API
+      final response = await http
+          .get(Uri.parse('http://10.20.20.195/fms/api/spk_api/get_all'));
 
-      setState(() {
-        laporanPemasangan = tempLaporan;
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        final List<Map<String, dynamic>> data =
+            List<Map<String, dynamic>>.from(jsonResponse['data']);
 
-        filteredLaporanPemasangan = laporanPemasangan.where((item) {
-          final noSpk = item.noSPK.toLowerCase();
-          final agentName = item.agentName.toLowerCase();
-          final kota = item.kota.toLowerCase();
-          final kanwil = item.kanwil.toLowerCase();
-          final serialNumber = item.serialNumber.toLowerCase();
-          final searchLower = _searchQuery.toLowerCase();
-          return noSpk.contains(searchLower) ||
-              agentName.contains(searchLower) ||
-              kota.contains(searchLower) ||
-              kanwil.contains(searchLower) ||
-              serialNumber.contains(searchLower);
-        }).toList();
-      });
+        final DateFormat dateTimeFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
+        List<Laporan> tempLaporan = data
+            .map((item) {
+              return Laporan(
+                isAktif: item['is_aktif'] ?? '0',
+                noSPK: item['no_spk'] ?? '',
+                agentName: item['nama_agen'] ?? '',
+                serialNumber: item['serial_number'] ?? '',
+                kota: item['kota'] ?? '',
+                kanwil: item['kanwil'] ?? '',
+                spkDiterima: item['tgl_spk'] != null && item['jam_spk'] != null
+                    ? dateTimeFormat
+                        .parse('${item['tgl_spk']} ${item['jam_spk']}')
+                    : DateTime.now(),
+                selesaiPemasangan: item['tgl_pemasangan'] != null &&
+                        item['jam_pemasangan'] != null
+                    ? dateTimeFormat.parse(
+                        '${item['tgl_pemasangan']} ${item['jam_pemasangan']}')
+                    : DateTime.now(),
+                catatan: item['catatan'] ?? '',
+                status: item['status']?.toLowerCase() ?? '',
+              );
+            })
+            .where((laporan) => laporan.status == 'sudah pasang')
+            .toList();
+
+        setState(() {
+          laporanPemasangan = tempLaporan;
+          filteredLaporanPemasangan = laporanPemasangan;
+        });
+
+        _filterLaporan();
+      } else {
+        print('Failed to load data from API');
+      }
     } catch (e) {
       print('Error fetching data: $e');
+    }
+  }
+
+  void _filterLaporan() {
+    setState(() {
+      filteredLaporanPemasangan = laporanPemasangan.where((item) {
+        final noSpk = item.noSPK.toLowerCase();
+        final agentName = item.agentName.toLowerCase();
+        final kota = item.kota.toLowerCase();
+        final kanwil = item.kanwil.toLowerCase();
+        final serialNumber = item.serialNumber.toLowerCase();
+        final searchLower = _searchQuery.toLowerCase();
+        final status = item.status;
+
+        final matchesKanwil = selectedKanwil == null ||
+            selectedKanwil!.isEmpty ||
+            item.kanwil.toLowerCase() == selectedKanwil!.toLowerCase();
+        final matchesKota = selectedKota == null ||
+            selectedKota!.isEmpty ||
+            item.kota.toLowerCase() == selectedKota!.toLowerCase();
+        final matchesStatus = selectedStatus == null ||
+            selectedStatus!.isEmpty ||
+            selectedStatus == 'semua' ||
+            status == statusMapping[selectedStatus];
+
+        return (noSpk.contains(searchLower) ||
+                agentName.contains(searchLower) ||
+                kota.contains(searchLower) ||
+                kanwil.contains(searchLower) ||
+                serialNumber.contains(searchLower)) &&
+            matchesKanwil &&
+            matchesKota &&
+            matchesStatus;
+      }).toList();
+    });
+  }
+
+  Future<void> fetchKanwilList() async {
+    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kanwilData = responseData['data'];
+          setState(() {
+            kanwilList = kanwilData.map<String>((item) {
+              return item['nama'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kanwil data");
+        }
+      } else {
+        print("Error fetching Kanwil data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kanwil data: $error');
+    }
+  }
+
+  Future<void> fetchKotaList() async {
+    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+    try {
+      final response = await http.get(Uri.parse(baseUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kotaData = responseData['data'];
+          setState(() {
+            kotaList = kotaData.map<String>((item) {
+              return item['city_name'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kota data");
+        }
+      } else {
+        print("Error fetching Kota data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kota data: $error');
     }
   }
 
@@ -125,6 +203,8 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
     initializeDateFormatting('id_ID', null).then((_) {
       fetchData();
     });
+    fetchKanwilList();
+    fetchKotaList();
   }
 
   Future<bool> _onWillPop() async {
@@ -179,54 +259,57 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
                       Expanded(
                         child: Padding(
                           padding:
-                              const EdgeInsets.only(right: 15.0, left: 5.0),
+                              const EdgeInsets.only(right: 10.0, left: 5.0),
                           child: DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'Kanwil (Semua)',
                               border: OutlineInputBorder(),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'kanwil1',
-                                child: Text('Kanwil 1'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'kanwil2',
-                                child: Text('Kanwil 2'),
-                              ),
-                            ],
+                            items: kanwilList.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 selectedKanwil = value;
+                                _filterLaporan();
                               });
                             },
+                            value: selectedKanwil,
                           ),
                         ),
                       ),
                       Expanded(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.only(left: 15.0, right: 5.0),
+                          padding: const EdgeInsets.only(left: 5.0, right: 5.0),
                           child: DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'Kota (Semua)',
                               border: OutlineInputBorder(),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'kota1',
-                                child: Text('Kota 1'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'kota2',
-                                child: Text('Kota 2'),
-                              ),
-                            ],
+                            items: kotaList.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Container(
+                                  constraints: BoxConstraints(maxWidth: 135.0),
+                                  child: Text(
+                                    value,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 selectedKota = value;
+                                _filterLaporan();
                               });
                             },
+                            value: selectedKota,
                           ),
                         ),
                       ),
@@ -240,21 +323,25 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
                         labelText: 'Status (Semua)',
                         border: OutlineInputBorder(),
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'status1',
-                          child: Text('Status 1'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'status2',
-                          child: Text('Status 2'),
-                        ),
-                      ],
+                      items: <String>[
+                        'semua',
+                        'done',
+                        'on progress',
+                        'pending',
+                        'failed'
+                      ].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                       onChanged: (value) {
                         setState(() {
                           selectedStatus = value;
+                          _filterLaporan();
                         });
                       },
+                      value: selectedStatus ?? 'semua',
                     ),
                   ),
                   const SizedBox(height: 15),
@@ -490,7 +577,17 @@ class LaporanDataSource extends DataTableSource {
             ),
           ],
         )),
-        DataCell(Text(laporan.catatan)),
+        DataCell(
+          Container(
+            width: 150.0,
+            child: Text(
+              laporan.catatan,
+              maxLines: 2,
+              // overflow: TextOverflow.ellipsis,
+              softWrap: true,
+            ),
+          ),
+        ),
         DataCell(
           Builder(
             builder: (BuildContext context) => PopupMenuButton<String>(
@@ -510,7 +607,9 @@ class LaporanDataSource extends DataTableSource {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const EditList(userData: null,),
+                      builder: (context) => const EditList(
+                        userData: null,
+                      ),
                     ),
                   );
                 }

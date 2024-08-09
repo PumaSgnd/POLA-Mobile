@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 //Menu
 import '../Menu/MenuPemasangan.dart';
 import '../user/User.dart';
@@ -16,10 +18,13 @@ class CekPerangkat extends StatefulWidget {
 }
 
 class _CekPerangkatState extends State<CekPerangkat> {
-  String? serialNumber = " ";
-  String? tid = " ";
+  String serialNumber = " ";
+  String tid = " ";
+  String? spk = " ";
+  String? kanwil = " "; 
   String? namaAgen;
   List<String> suggestions = [];
+  List<Map<String, dynamic>> suggestionList = [];
   TextEditingController _namaAgenController = TextEditingController();
   TextEditingController _serialNumberController = TextEditingController();
   String selectedNamaAgen = "";
@@ -27,14 +32,15 @@ class _CekPerangkatState extends State<CekPerangkat> {
   String? fungsiPerangkat;
   String _scanBarcode = '';
   String selectedTestFungsi = "";
-  String? catatanCekPerangkat = " ";
   List<Map<String, dynamic>> testFungsiItems = [];
   Map<String, String> testFungsi = {};
+  String? catatanCekPerangkat = " ";
   bool isBoxVisible = false;
 
   @override
   void initState() {
     super.initState();
+    fetchCekPerangkat();
     alamatAgen = '';
     tid = '';
     _namaAgenController.addListener(_onNamaAgenChanged);
@@ -76,6 +82,164 @@ class _CekPerangkatState extends State<CekPerangkat> {
       ),
     );
     return false;
+  }
+
+  Future<void> save() async {
+    // final url =
+    //     Uri.parse('http://10.20.20.195/fms/api/pemasangan_api/save_test');
+
+    // final Map<String, dynamic> body = Map<String, dynamic>();
+
+    // for (int i = 0; i < testFungsiItems.length; i++) {
+    //   body['fungsi[$i]'] = json.encode(testFungsiItems[i]);
+    // }
+
+    // print(body);
+
+    final url =
+        Uri.parse('http://10.20.20.195/fms/api/pemasangan_api/save_test');
+
+    final Map<String, dynamic> body = {};
+
+    for (int i = 0; i < testFungsiItems.length; i++) {
+      final item = testFungsiItems[i];
+      final itemId = item['id'].toString();
+
+      body['fungsi[$i]'] = {
+        'id': item['id'],
+        'item': item['item'],
+        'status': testFungsi[itemId] ?? '',
+      };
+    }
+
+    final response = await http.post(
+      url,
+      body: json.encode({
+        'id_spk': spk,
+        'fungsi_perangkat': fungsiPerangkat,
+        'catatan_test': catatanCekPerangkat,
+        'serial_number': _serialNumberController.text,
+        'id_item_test': body,
+        'kawil': kanwil,
+      }),
+    );
+
+    print(response.body);
+
+    // if (this.products != null) {
+
+    // }
+
+    // final idItemTestString = testFungsiItems.map((item) {
+    //   return 'id_item_test[${item['id']}]=${Uri.encodeComponent(testFungsi[item['id'].toString()] ?? '')}';
+    // }).join('&');
+
+    // print(idItemTestString);
+
+    // if (response.statusCode == 200) {
+    //   final responseData = jsonDecode(response.body);
+    //   if (responseData['success']) {
+    //     ScaffoldMessenger.of(context).showSnackBar(
+    //       SnackBar(content: Text(responseData['msg'])),
+    //     );
+    //     // Clear fields or navigate as needed
+    //   } else {
+    //     ScaffoldMessenger.of(context).showSnackBar(
+    //       SnackBar(content: Text(responseData['err_msg'])),
+    //     );
+    //   }
+    // } else {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(content: Text('Failed to save data')),
+    //   );
+    // }
+  }
+
+  Future<void> fetchAgenSuggestions(String keyword) async {
+    final Uri uri = Uri.parse(
+      'http://10.20.20.195/fms/api/pemasangan_api/find_by_agen?nama_agen=$keyword',
+    );
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData != null && responseData.containsKey('suggestions')) {
+          suggestionList =
+              List<Map<String, dynamic>>.from(responseData['suggestions']);
+
+          setState(() {
+            suggestions = suggestionList
+                .map((suggestion) => suggestion['value'].toString())
+                .toList();
+
+            if (suggestions.isNotEmpty) {
+              final selectedSuggestion = suggestions[0];
+              final suggestionMap = suggestionList.firstWhere(
+                (suggestion) =>
+                    suggestion['value'].toString() == selectedSuggestion,
+                orElse: () => <String, dynamic>{},
+              );
+
+              if (suggestionMap.isNotEmpty) {
+                alamatAgen = suggestionMap['alamat'] ?? '';
+                tid = suggestionMap['tid'] ?? '';
+                spk = suggestionMap['spk'] ?? '';
+                kanwil = suggestionMap['kanwil'] ?? '';
+
+                print(spk);
+              }
+            }
+          });
+        }
+      } else {
+        print('Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error: $e');
+    }
+  }
+
+  Future<void> fetchCekPerangkat() async {
+    final String baseUrl =
+        "http://10.20.20.195/fms/api/pemasangan_api/cek_perangkat";
+
+    try {
+      final response = await http.get(Uri.parse(baseUrl));
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['status'] == true) {
+          final List<dynamic> listItemTest = responseData['data'];
+
+          if (listItemTest.isNotEmpty) {
+            setState(() {
+              testFungsiItems = listItemTest
+                  .map((item) => {
+                        'id': item['id'],
+                        'item': item['item'],
+                        // 'status': item['']
+                      })
+                  .toList();
+
+              if (testFungsiItems.isNotEmpty) {
+                selectedTestFungsi = testFungsiItems[0]['id'].toString();
+              }
+            });
+          }
+        } else {
+          print("Error fetching Cek Perangkat data");
+        }
+        print('Cek Perangkat data: $testFungsiItems');
+      } else {
+        print("Error fetching Cek Perangkat data: ${response.statusCode}");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Cek Perangkat data: $error');
+    }
   }
 
   @override
@@ -130,10 +294,13 @@ class _CekPerangkatState extends State<CekPerangkat> {
                         height: 50,
                         child: TextFormField(
                           controller: _namaAgenController,
-                          onChanged: (value) {
+                          onChanged: (value) async {
                             setState(() {
                               isBoxVisible = value.isNotEmpty;
                             });
+                            if (value.isNotEmpty) {
+                              await fetchAgenSuggestions(value);
+                            }
                           },
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(
@@ -146,7 +313,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
                       Visibility(
                         visible: isBoxVisible,
                         child: Container(
-                          height: 100, // Atur tinggi Container sesuai kebutuhan
+                          height: 100, // Adjust height as needed
                           decoration: BoxDecoration(
                             border: Border.all(
                               color: Colors.grey,
@@ -160,15 +327,29 @@ class _CekPerangkatState extends State<CekPerangkat> {
                               return ListTile(
                                 title: Text(suggestions[index]),
                                 onTap: () {
-                                  setState(() {
-                                    selectedNamaAgen = suggestions[index];
-                                    _namaAgenController.text =
-                                        suggestions[index];
-                                    isBoxVisible = false;
-                                    alamatAgen = getAlamatAgenFromDatabase(
-                                        selectedNamaAgen);
-                                    tid = getTidFromDatabase(selectedNamaAgen);
-                                  });
+                                  final selectedSuggestion = suggestions[index];
+                                  final suggestionMap =
+                                      suggestionList.firstWhere(
+                                    (suggestion) =>
+                                        suggestion['value'] ==
+                                        selectedSuggestion,
+                                    orElse: () =>
+                                        <String, dynamic>{}, // Return empty map
+                                  );
+
+                                  if (suggestionMap.isNotEmpty) {
+                                    setState(() {
+                                      selectedNamaAgen = selectedSuggestion;
+                                      _namaAgenController.text =
+                                          selectedSuggestion;
+                                      alamatAgen =
+                                          suggestionMap['alamat'] ?? '';
+                                      tid = suggestionMap['tid'] ?? '';
+                                      isBoxVisible = false;
+                                    });
+                                  } else {
+                                    print('Saran yang dipilih tidak valid.');
+                                  }
                                 },
                               );
                             },
@@ -252,6 +433,8 @@ class _CekPerangkatState extends State<CekPerangkat> {
                                   BorderRadius.all(Radius.circular(8.0)),
                             ),
                           ),
+                          maxLines: null,
+                          minLines: 1,
                           enabled: false,
                           controller: TextEditingController(text: alamatAgen),
                         ),
@@ -292,7 +475,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
                           borderRadius:
                               const BorderRadius.all(Radius.circular(8.0)),
                         ),
-                        height: 97.0,
+                        height: 103.0,
                         padding: const EdgeInsets.all(10.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,7 +491,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 5.0),
+                            // const SizedBox(height: 5.0),
                             Row(
                               children: [
                                 Expanded(
@@ -355,43 +538,60 @@ class _CekPerangkatState extends State<CekPerangkat> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Tes Perangkat',
+                              'Test Fungsi',
                               style: TextStyle(fontSize: 16.0),
                             ),
                             const SizedBox(
-                                height:
-                                    5.0), // Memberi jarak antara tes perangkat dan opsi LCD
-                            const Text(
-                              '*LCD',
-                              style: TextStyle(fontSize: 13.0),
+                              height:
+                                  8.0, // Menambahkan jarak antara judul dan pilihan radio
                             ),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: RadioListTile(
-                                    title: const Text('OK'),
-                                    value: 'OK',
-                                    groupValue: fungsiPerangkat,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        fungsiPerangkat = value.toString();
-                                      });
-                                    },
-                                  ),
-                                ),
-                                Expanded(
-                                  child: RadioListTile(
-                                    title: const Text('NOK'),
-                                    value: 'NOK',
-                                    groupValue: fungsiPerangkat,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        fungsiPerangkat = value.toString();
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
+                            Column(
+                              children: testFungsiItems.map((item) {
+                                String itemId = item['id'].toString();
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      ' ${item['item']} *',
+                                      style: const TextStyle(fontSize: 13.0),
+                                    ),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: RadioListTile(
+                                            title: const Text('OK'),
+                                            value: 'OK',
+                                            groupValue: testFungsi[itemId],
+                                            onChanged: (value) {
+                                              setState(() {
+                                                testFungsi[itemId] =
+                                                    value.toString();
+                                                print(
+                                                    'Saved Value for $itemId: $value');
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: RadioListTile(
+                                            title: const Text('NOK'),
+                                            value: 'NOK',
+                                            groupValue: testFungsi[itemId],
+                                            onChanged: (value) {
+                                              setState(() {
+                                                testFungsi[itemId] =
+                                                    value.toString();
+                                                print(
+                                                    'Saved Value for $itemId: $value');
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
                             ),
                           ],
                         ),
@@ -452,7 +652,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
                               ),
                             ),
                             onPressed: () {
-                              // Simpan data ke database atau lakukan operasi lainnya
+                              save();
                             },
                             child: const Text(
                               'Simpan',

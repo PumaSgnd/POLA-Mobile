@@ -61,8 +61,6 @@ class MainApp extends StatelessWidget {
           Profile.id: (context) => const Profile(
                 userData: null,
               ),
-          // MenuCM.id: (context) => const MenuCM(userData: null),
-          // MenuPM.id: (context) => const MenuPM(userData: null),
           //JO
           InputSPK.id: (context) => const InputSPK(userData: null),
           CekPerangkat.id: (context) => const CekPerangkat(userData: null),
@@ -72,16 +70,6 @@ class MainApp extends StatelessWidget {
           Pemasangan.id: (context) => const Pemasangan(userData: null),
           //WD
           // InputWDEDC.id: ,
-          // //PM
-          // JadwalPM.id: (context) => const JadwalPM(),
-          // LaporanPM.id: (context) => const LaporanPM(),
-          // HistoryPM.id: (context) => const HistoryPM(),
-          // //CM
-          // DataLaporanGangguan.id: (context) => const DataLaporanGangguan(),
-          // EditPage.id: (context) => EditPage(
-          //     data: const {}, onSave: (Map<String, dynamic> newData) {}),
-          // LaporanCM.id: (context) => const LaporanCM(),
-          // InputLaporanGangguan.id: (context) => const InputLaporanGangguan()
         } // Set the Login as the initial route
         );
   }

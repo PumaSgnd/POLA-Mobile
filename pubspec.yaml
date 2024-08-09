@@ -23,6 +23,9 @@ dependencies:
   syncfusion_flutter_datagrid: ^26.1.41
   curved_navigation_bar: ^1.0.6
   flutter_native_splash: ^2.4.1
+  dropdown_search: ^5.0.6
+  excel: ^2.0.5
+  path_provider: ^2.0.11
   
 dev_dependencies:
   flutter_test:

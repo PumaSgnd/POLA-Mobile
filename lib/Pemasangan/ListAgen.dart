@@ -6,6 +6,10 @@ import 'package:pola/Pemasangan/listagen/DetailAgen.dart';
 import 'package:pola/Pemasangan/listagen/EditAgen.dart';
 import 'dart:convert';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:excel/excel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+
 //Menu
 import '../Menu/MenuPemasangan.dart';
 import '../user/User.dart';
@@ -49,182 +53,125 @@ class _ListAgenMenuState extends State<ListAgen> {
   String? selectedKota;
   String? selectedStatus;
   String _searchQuery = '';
-
-  // Future<void> fetchData() async {
-  //   final response =
-  //       await http.get(Uri.parse('http://localhost/fms/api/spk_api/get_all'));
-
-  //   if (response.statusCode == 200) {
-  //     final Map<String, dynamic> jsonResponse = json.decode(response.body);
-  //     final List<dynamic> data = jsonResponse['data'];
-
-  //     setState(() {
-  //       agents.clear();
-  //       for (var item in data) {
-  //         agents.add(Agent(
-  //           is_aktif: item['is_aktif'],
-  //           agentName: item['nama_agen'],
-  //           kanwil: item['kanwil'],
-  //           serialNumber: item['serial_number'],
-  //           status: item['status'],
-  //           installationDate: DateTime.parse(item['tgl_pemasangan']),
-  //         ));
-  //       }
-  //     });
-  //     print(data);
-  //   } else {
-  //     throw Exception('Gagal mengambil data dari API');
-  //   }
-  // }
-
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   fetchData(); // Panggil fungsi fetchData saat halaman dibuat
-  // }
+  List<String> kanwilList = [];
+  List<String> kotaList = [];
 
   Future<void> fetchData() async {
     try {
-      // Dummy data for testing
-      final List<Map<String, dynamic>> dummyData = [
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'sim_card': 'SIM001',
-          'status': 'Sudah Pasang',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-        },
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'sim_card': 'SIM001',
-          'status': 'Sudah Pasang',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-        },
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'sim_card': 'SIM001',
-          'status': 'Sudah Pasang',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-        },
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'sim_card': 'SIM001',
-          'status': 'Sudah Pasang',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-        },
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'sim_card': 'SIM001',
-          'status': 'Sudah Pasang',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-        },
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'sim_card': 'SIM001',
-          'status': 'Sudah Pasang',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-        },
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'sim_card': 'SIM001',
-          'status': 'Sudah Pasang',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-        },
-        {
-          'is_aktif': '1',
-          'no_spk': 'SPK001',
-          'nama_agen': 'Agen 2',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'sim_card': 'SIM001',
-          'status': 'Sudah Pasang',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-        },
-        // Add more data as needed
-      ];
+      final response = await http
+          .get(Uri.parse('http://10.20.20.195/fms/api/spk_api/get_all'));
 
-      List<Agent> tempAgents = dummyData.map((item) {
-        return Agent(
-          is_aktif: item['is_aktif'],
-          noSPK: item['no_spk'],
-          agentName: item['nama_agen'],
-          kota: item['kota'],
-          kanwil: item['kanwil'],
-          serialNumber: item['serialnumber'],
-          simCard: item['sim_card'],
-          status: item['status'],
-          installationDate: DateTime.parse(
-              '${item['tgl_pemasangan']} ${item['jam_pemasangan']}'),
-        );
-      }).toList();
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        final List<dynamic> data = jsonResponse['data'];
+        print('Data received: $data'); // Logging
 
-      setState(() {
-        agents = tempAgents;
-
-        // Apply search filter
-        filteredAgen = agents.where((agent) {
-          final searchLower = _searchQuery.toLowerCase();
-          return agent.noSPK.toLowerCase().contains(searchLower) ||
-              agent.agentName.toLowerCase().contains(searchLower) ||
-              agent.kota.toLowerCase().contains(searchLower) ||
-              agent.kanwil.toLowerCase().contains(searchLower) ||
-              agent.serialNumber.toLowerCase().contains(searchLower);
-        }).toList();
-      });
+        setState(() {
+          agents.clear();
+          for (var item in data) {
+            try {
+              agents.add(
+                Agent(
+                  is_aktif: item['is_aktif'] ?? '',
+                  noSPK: item['no_spk'] ?? '',
+                  agentName: item['nama_agen'] ?? '',
+                  kota: item['kota'] ?? '',
+                  kanwil: item['kanwil'] ?? '',
+                  serialNumber: item['serial_number'] ?? '',
+                  simCard: item['sim_card'] ?? '',
+                  status: item['status'] ?? '',
+                  installationDate: DateTime.parse(
+                      '${item['tgl_pemasangan']} ${item['jam_pemasangan']}'),
+                ),
+              );
+            } catch (e) {
+              print('Error parsing item: $item - $e');
+            }
+          }
+          filteredAgen = agents;
+        });
+      } else {
+        print('Error: Status code ${response.statusCode}');
+        print('Response body: ${response.body}');
+        throw Exception('Gagal mengambil data dari API');
+      }
     } catch (e) {
-      print('Error fetching data: $e');
+      print('Exception caught: $e');
+    }
+  }
+
+  void filterAgents() {
+    setState(() {
+      filteredAgen = agents.where((agent) {
+        final query = _searchQuery.toLowerCase();
+        return agent.agentName.toLowerCase().contains(query) ||
+            agent.kota.toLowerCase().contains(query) ||
+            agent.kanwil.toLowerCase().contains(query) ||
+            agent.noSPK.toLowerCase().contains(query) ||
+            agent.simCard.toLowerCase().contains(query) ||
+            agent.serialNumber.toLowerCase().contains(query) ||
+            agent.status.toLowerCase().contains(query);
+      }).toList();
+    });
+  }
+
+  Future<void> fetchKanwilList() async {
+    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kanwilData = responseData['data'];
+          setState(() {
+            kanwilList = kanwilData.map<String>((item) {
+              return item['nama'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kanwil data");
+        }
+      } else {
+        print("Error fetching Kanwil data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kanwil data: $error');
+    }
+  }
+
+  Future<void> fetchKotaList() async {
+    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+    try {
+      final response = await http.get(Uri.parse(baseUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kotaData = responseData['data'];
+          setState(() {
+            kotaList = kotaData.map<String>((item) {
+              return item['city_name'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kota data");
+        }
+      } else {
+        print("Error fetching Kota data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kota data: $error');
     }
   }
 
   @override
   void initState() {
     super.initState();
+    fetchData();
     initializeDateFormatting('id_ID', null).then((_) {
       fetchData();
     });
+    fetchKanwilList();
+    fetchKotaList();
   }
 
   Future<bool> _onWillPop() async {
@@ -279,54 +226,48 @@ class _ListAgenMenuState extends State<ListAgen> {
                       Expanded(
                         child: Padding(
                           padding:
-                              const EdgeInsets.only(right: 15.0, left: 5.0),
+                              const EdgeInsets.only(right: 10.0, left: 5.0),
                           child: DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'Kanwil (Semua)',
                               border: OutlineInputBorder(),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'kanwil1',
-                                child: Text('Kanwil 1'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'kanwil2',
-                                child: Text('Kanwil 2'),
-                              ),
-                            ],
+                            items: kanwilList.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 selectedKanwil = value;
                               });
                             },
+                            value: selectedKanwil,
                           ),
                         ),
                       ),
                       Expanded(
                         child: Padding(
                           padding:
-                              const EdgeInsets.only(left: 15.0, right: 5.0),
+                              const EdgeInsets.only(left: 5.0, right: 5.0),
                           child: DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'Kota (Semua)',
                               border: OutlineInputBorder(),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'kota1',
-                                child: Text('Kota 1'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'kota2',
-                                child: Text('Kota 2'),
-                              ),
-                            ],
+                            items: kotaList.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 selectedKota = value;
                               });
                             },
+                            value: selectedKota,
                           ),
                         ),
                       ),
@@ -369,7 +310,7 @@ class _ListAgenMenuState extends State<ListAgen> {
                       onChanged: (value) {
                         setState(() {
                           _searchQuery = value;
-                          fetchData();
+                          filterAgents();
                         });
                       },
                     ),
@@ -527,14 +468,19 @@ class AgentDataSource extends DataTableSource {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const DetailPage(detailId: '', userData: null,),
+                  builder: (context) => const DetailPage(
+                    detailId: '',
+                    userData: null,
+                  ),
                 ),
               );
             } else if (value == 'Edit') {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const EditAgen(userData: null,),
+                  builder: (context) => const EditAgen(
+                    userData: null,
+                  ),
                 ),
               );
             }

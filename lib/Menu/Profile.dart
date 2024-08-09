@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../BottomNavBar.dart';
 import '../Login/Login.dart';
 import '../user/User.dart';
+import '../Profile/Ubahpass.dart';
 //Menu
 import '../Menu/MenuHome.dart';
 import '../Menu/MenuPemasangan.dart';
@@ -92,6 +93,8 @@ class _ProfileMenu extends State<Profile> {
 
   @override
   Widget build(BuildContext context) {
+    final String? username = widget.userData?.name;
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -127,52 +130,26 @@ class _ProfileMenu extends State<Profile> {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.person),
-                      title: Text(username),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              String editedUsername =
-                                  username; // Variable sementara untuk nama pengguna yang diedit
-                              return AlertDialog(
-                                title: const Text('Edit Nama Pengguna'),
-                                content: TextField(
-                                  decoration: const InputDecoration(
-                                    labelText: 'Nama Pengguna',
-                                  ),
-                                  onChanged: (value) {
-                                    editedUsername =
-                                        value; // Update nama pengguna yang diedit saat nilai berubah
-                                  },
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context)
-                                          .pop(); // Tutup dialog tanpa menyimpan perubahan
-                                    },
-                                    child: const Text('Batal'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      // Simpan perubahan dan tutup dialog
-                                      setState(() {
-                                        username = editedUsername;
-                                      });
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: const Text('Simpan'),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        },
+                      title: Text(
+                        '${username?[0].toUpperCase()}${username?.substring(1)}',
+                        style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                     ),
                     const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.edit),
+                      title: const Text('Ubah Password'),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => UpdatePassword(
+                              userData: widget.userData,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                     ListTile(
                       leading: const Icon(Icons.info),
                       title: const Text('Versi Aplikasi'),

@@ -1,6 +1,12 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter/material.dart';
+import 'package:syncfusion_flutter_datagrid/datagrid.dart';
+import 'package:excel/excel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 //Menu
 import '../Menu/MenuDrop.dart';
 import '../user/User.dart';
@@ -42,71 +48,117 @@ class ListWDPage extends State<ListWD> {
   List<DataPenarikan> filteredPenarikanList = [];
   String? selectedKanwil;
   String? selectedKota;
+  List<String> kanwilList = [];
+  List<String> kotaList = [];
   String? selectedStatus;
   String _searchQuery = '';
 
+  void filterAgents() {
+    setState(() {
+      filteredPenarikanList = penarikanList.where((agent) {
+        final query = _searchQuery.toLowerCase();
+        return (selectedKanwil == null || agent.kanwil == selectedKanwil) &&
+            (selectedKota == null || agent.kota == selectedKota) &&
+            (selectedStatus == null || agent.status == selectedStatus) &&
+            (agent.namaAgen.toLowerCase().contains(query) ||
+                agent.kota.toLowerCase().contains(query) ||
+                agent.kanwil.toLowerCase().contains(query) ||
+                agent.noSPKPenarikan.toLowerCase().contains(query) ||
+                agent.serialNumber.toLowerCase().contains(query) ||
+                agent.status.toLowerCase().contains(query));
+      }).toList();
+    });
+  }
+
+  Future<void> fetchKanwilList() async {
+    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kanwilData = responseData['data'];
+          setState(() {
+            kanwilList = kanwilData.map<String>((item) {
+              return item['nama'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kanwil data");
+        }
+      } else {
+        print("Error fetching Kanwil data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kanwil data: $error');
+    }
+  }
+
+  Future<void> fetchKotaList() async {
+    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+    try {
+      final response = await http.get(Uri.parse(baseUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kotaData = responseData['data'];
+          setState(() {
+            kotaList = kotaData.map<String>((item) {
+              return item['city_name'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kota data");
+        }
+      } else {
+        print("Error fetching Kota data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kota data: $error');
+    }
+  }
+
   Future<void> fetchData() async {
     try {
-      // Dummy data for testing
-      final List<Map<String, dynamic>> dummyData = [
-        {
-          'no_spkPenarikan': 'SPK001',
-          'nama_agen': 'Agen 1',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 1',
-          'serialnumber': 'SN001',
-          'status': '1',
-          'tgl_pemasangan': '2023-07-02',
-          'jam_pemasangan': '10:00:00',
-          'tgl_penarikan': '2023-08-10',
-          'jam_penarikan': '10:00:00',
-        },
-        {
-          'no_spkPenarikan': 'SPK002',
-          'nama_agen': 'Agen 2',
-          'kota': 'pku',
-          'kanwil': 'Kanwil 2',
-          'serialnumber': 'SN002',
-          'status': '0', // Use '0' for 'Ditarik'
-          'tgl_pemasangan': '2023-07-03',
-          'jam_pemasangan': '11:00:00',
-          'tgl_penarikan': '2023-08-11',
-          'jam_penarikan': '11:00:00',
-        },
-      ];
+      final response = await http
+          .get(Uri.parse('http://10.20.20.195/fms/api/penarikan_api/get_all'));
 
-      List<DataPenarikan> tempDataPenarikan = dummyData.map((item) {
-        return DataPenarikan(
-          noSPKPenarikan: item['no_spkPenarikan'],
-          namaAgen: item['nama_agen'],
-          kota: item['kota'],
-          kanwil: item['kanwil'],
-          serialNumber: item['serialnumber'],
-          status: item['status'],
-          tanggalPemasangan: DateTime.parse(
-              '${item['tgl_pemasangan']} ${item['jam_pemasangan']}'),
-          tanggalPenarikan: DateTime.parse(
-              '${item['tgl_penarikan']} ${item['jam_penarikan']}'),
-        );
-      }).toList();
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        final List<dynamic> data = jsonResponse['data'];
+        print('Data received: $data');
 
-      setState(() {
-        penarikanList = tempDataPenarikan;
-
-        // Apply search filter
-        filteredPenarikanList = penarikanList.where((DataPenarikan) {
-          final searchLower = _searchQuery.toLowerCase();
-          return DataPenarikan.noSPKPenarikan
-                  .toLowerCase()
-                  .contains(searchLower) ||
-              DataPenarikan.namaAgen.toLowerCase().contains(searchLower) ||
-              DataPenarikan.kota.toLowerCase().contains(searchLower) ||
-              DataPenarikan.kanwil.toLowerCase().contains(searchLower) ||
-              DataPenarikan.serialNumber.toLowerCase().contains(searchLower);
-        }).toList();
-      });
+        setState(() {
+          penarikanList.clear();
+          for (var item in data) {
+            try {
+              penarikanList.add(
+                DataPenarikan(
+                  noSPKPenarikan: item['no_spk_penarikan'] ?? '',
+                  namaAgen: item['nama_agen'] ?? '',
+                  kota: item['kota'] ?? '',
+                  kanwil: item['kanwil'] ?? '',
+                  serialNumber: item['serial_number'] ?? '',
+                  status: item['is_aktif'] ?? '',
+                  tanggalPemasangan:
+                      DateTime.parse(item['tanggal_pemasangan'] ?? ''),
+                  tanggalPenarikan:
+                      DateTime.parse(item['tanggal_penarikan'] ?? ''),
+                ),
+              );
+            } catch (e) {
+              print('Error parsing item: $item - $e');
+            }
+          }
+          filterAgents();
+        });
+      } else {
+        print('Error: Status code ${response.statusCode}');
+        print('Response body: ${response.body}');
+        throw Exception('Gagal mengambil data dari API');
+      }
     } catch (e) {
-      print('Error fetching data: $e');
+      print('Exception caught: $e');
     }
   }
 
@@ -116,6 +168,8 @@ class ListWDPage extends State<ListWD> {
     initializeDateFormatting('id_ID', null).then((_) {
       fetchData();
     });
+    fetchKanwilList();
+    fetchKotaList();
   }
 
   Future<bool> _onWillPop() async {
@@ -170,54 +224,57 @@ class ListWDPage extends State<ListWD> {
                       Expanded(
                         child: Padding(
                           padding:
-                              const EdgeInsets.only(right: 15.0, left: 5.0),
+                              const EdgeInsets.only(right: 10.0, left: 5.0),
                           child: DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'Kanwil (Semua)',
                               border: OutlineInputBorder(),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'kanwil1',
-                                child: Text('Kanwil 1'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'kanwil2',
-                                child: Text('Kanwil 2'),
-                              ),
-                            ],
+                            items: kanwilList.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 selectedKanwil = value;
+                                filterAgents();
                               });
                             },
+                            value: selectedKanwil,
                           ),
                         ),
                       ),
                       Expanded(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.only(left: 15.0, right: 5.0),
+                          padding: const EdgeInsets.only(left: 5.0, right: 5.0),
                           child: DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'Kota (Semua)',
                               border: OutlineInputBorder(),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'kota1',
-                                child: Text('Kota 1'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'kota2',
-                                child: Text('Kota 2'),
-                              ),
-                            ],
+                            items: kotaList.map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Container(
+                                  constraints: BoxConstraints(maxWidth: 135.0),
+                                  child: Text(
+                                    value,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 selectedKota = value;
+                                filterAgents();
                               });
                             },
+                            value: selectedKota,
                           ),
                         ),
                       ),
@@ -244,6 +301,7 @@ class ListWDPage extends State<ListWD> {
                       onChanged: (value) {
                         setState(() {
                           selectedStatus = value;
+                          filterAgents();
                         });
                       },
                     ),
@@ -260,7 +318,7 @@ class ListWDPage extends State<ListWD> {
                       onChanged: (value) {
                         setState(() {
                           _searchQuery = value;
-                          fetchData();
+                          filterAgents();
                         });
                       },
                     ),
@@ -361,9 +419,13 @@ class PenarikanDataSource extends DataTableSource {
 
   @override
   DataRow getRow(int index) {
-    final DataPenarikan penarikan = penarikanList[index];
+    assert(index >= 0);
+    if (index >= penarikanList.length) {
+      return DataRow.byIndex(index: index, cells: []);
+    }
 
-    return DataRow(cells: [
+    final DataPenarikan penarikan = penarikanList[index];
+    return DataRow.byIndex(index: index, cells: [
       DataCell(Text(penarikan.noSPKPenarikan)),
       DataCell(Text(penarikan.namaAgen)),
       DataCell(Text(penarikan.kota)),
@@ -372,7 +434,6 @@ class PenarikanDataSource extends DataTableSource {
       DataCell(Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8.0),
           Text(
             DateFormat('dd MMMM yyyy', 'id_ID')
                 .format(penarikan.tanggalPemasangan),
@@ -385,7 +446,6 @@ class PenarikanDataSource extends DataTableSource {
       DataCell(Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8.0),
           Text(
             DateFormat('dd MMMM yyyy', 'id_ID')
                 .format(penarikan.tanggalPenarikan),
@@ -418,14 +478,19 @@ class PenarikanDataSource extends DataTableSource {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const DetailPage(detailId: '', userData: null,),
+                  builder: (context) => DetailPage(
+                    detailId: penarikan.noSPKPenarikan, // Pass ID here
+                    userData: null,
+                  ),
                 ),
               );
             } else if (value == 'Proses') {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const EditWD(userData: null,),
+                  builder: (context) => EditWD(
+                    userData: null,
+                  ),
                 ),
               );
             }

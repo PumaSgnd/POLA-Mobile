@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as path;
+import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -19,19 +20,21 @@ class InputWDEDC extends StatefulWidget {
 }
 
 class _InputWDEDCState extends State<InputWDEDC> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController nomorJoController = TextEditingController();
   final TextEditingController namaAgenController = TextEditingController();
-  final TextEditingController alamatAgenController = TextEditingController();
-  final TextEditingController teleponAgenController = TextEditingController();
-  final TextEditingController tidController = TextEditingController();
-  final TextEditingController midController = TextEditingController();
-  String selectedKota = 'Pilih Kota';
-  String selectedKanwil = 'Pilih Kanwil';
-  DateTime selectedDate = DateTime.now();
+  String id_spk = '';
   String selectedFile = '';
-
-  List<String> kotaList = [];
-  List<String> kanwilList = [];
+  String serialNumber = " ";
+  String tid = " ";
+  String mid = " ";
+  String selectedNamaAgen = "";
+  String? alamatAgen = " ";
+  String? teleponAgen = " ";
+  String? namaAgen;
+  List<String> suggestions = [];
+  List<Map<String, dynamic>> suggestionList = [];
+  bool isBoxVisible = false;
 
   Future<void> _selectFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -52,19 +55,115 @@ class _InputWDEDCState extends State<InputWDEDC> {
   @override
   void initState() {
     super.initState();
+    alamatAgen = '';
+    tid = '';
+    namaAgenController.addListener(_onNamaAgenChanged);
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime(2015),
-      lastDate: DateTime(2101),
+  void _onNamaAgenChanged() {
+    final value = namaAgenController.text;
+    setState(() {
+      isBoxVisible = value.isNotEmpty;
+    });
+  }
+
+  @override
+  void dispose() {
+    namaAgenController.dispose();
+    super.dispose();
+  }
+
+  void sendHttpRequestWithBody() async {
+    final String baseUrl = "http://10.20.20.195/fms/api/panarikan_api/simpan";
+
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
+
+      request.fields['no_spk_penarikan'] = nomorJoController.text ?? '';
+      request.fields['id_spk'] = id_spk ?? '';
+
+      if (widget.userData != null) {
+        request.fields['created_by'] = widget.userData!.username;
+      } else {
+        // Handle the case when userData is null
+        print('User data is null');
+        return;
+      }
+
+      if (selectedFile.isNotEmpty) {
+        var file = File(selectedFile);
+        var fileName = path.basename(file.path);
+        request.files.add(
+          http.MultipartFile(
+            'dok_spk_penarikan',
+            file.readAsBytes().asStream(),
+            file.lengthSync(),
+            filename: fileName,
+          ),
+        );
+      }
+
+      var response = await request.send();
+      final responseString = await response.stream.bytesToString();
+      print('Response body: $responseString');
+
+      if (response.statusCode == 200) {
+        var responseData = json.decode(responseString);
+        if (responseData['success'] == true) {
+          print('JO Penarikan berhasil disimpan');
+        } else {
+          print('JO Penarikan gagal disimpan: ${responseData['err_msg']}');
+        }
+      } else {
+        print('Request failed with status: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('An error occurred: $error');
+    }
+  }
+
+  Future<void> fetchAgenSuggestions(String keyword) async {
+    final Uri uri = Uri.parse(
+      'http://10.20.20.195/fms/api/penarikan_api/find_by_agen?nama_agen=$keyword',
     );
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-      });
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData != null && responseData.containsKey('suggestions')) {
+          suggestionList =
+              List<Map<String, dynamic>>.from(responseData['suggestions']);
+
+          setState(() {
+            suggestions = suggestionList
+                .map((suggestion) => suggestion['value'].toString())
+                .toList();
+
+            if (suggestions.isNotEmpty) {
+              final selectedSuggestion = suggestions[0];
+              final suggestionMap = suggestionList.firstWhere(
+                (suggestion) =>
+                    suggestion['value'].toString() == selectedSuggestion,
+                orElse: () => <String, dynamic>{},
+              );
+
+              if (suggestionMap.isNotEmpty) {
+                alamatAgen = suggestionMap['alamat'] ?? '';
+                teleponAgen = suggestionMap['telepon_agen'] ?? '';
+                tid = suggestionMap['tid'] ?? '';
+                mid = suggestionMap['mid'] ?? '';
+              }
+            }
+          });
+        }
+      } else {
+        print('Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error: $e');
     }
   }
 
@@ -152,6 +251,14 @@ class _InputWDEDCState extends State<InputWDEDC> {
                       const SizedBox(height: 5),
                       TextFormField(
                         controller: namaAgenController,
+                        onChanged: (value) async {
+                          setState(() {
+                            isBoxVisible = value.isNotEmpty;
+                          });
+                          if (value.isNotEmpty) {
+                            await fetchAgenSuggestions(value);
+                          }
+                        },
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(
                             borderRadius:
@@ -164,6 +271,55 @@ class _InputWDEDCState extends State<InputWDEDC> {
                           }
                           return null;
                         },
+                      ),
+                      Visibility(
+                        visible: isBoxVisible,
+                        child: Container(
+                          height: 50, // Adjust height as needed
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Colors.grey,
+                              width: 1.0,
+                            ),
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: ListView.builder(
+                            itemCount: suggestions.length,
+                            itemBuilder: (context, index) {
+                              return ListTile(
+                                title: Text(suggestions[index]),
+                                onTap: () {
+                                  final selectedSuggestion = suggestions[index];
+                                  final suggestionMap =
+                                      suggestionList.firstWhere(
+                                    (suggestion) =>
+                                        suggestion['value'] ==
+                                        selectedSuggestion,
+                                    orElse: () =>
+                                        <String, dynamic>{}, // Return empty map
+                                  );
+
+                                  if (suggestionMap.isNotEmpty) {
+                                    setState(() {
+                                      selectedNamaAgen = selectedSuggestion;
+                                      namaAgenController.text =
+                                          selectedSuggestion;
+                                      alamatAgen =
+                                          suggestionMap['alamat'] ?? '';
+                                      teleponAgen =
+                                          suggestionMap['telepon_agen'] ?? '';
+                                      tid = suggestionMap['tid'] ?? '';
+                                      mid = suggestionMap['mid'] ?? '';
+                                      isBoxVisible = false;
+                                    });
+                                  } else {
+                                    print('Saran yang dipilih tidak valid.');
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 15),
                       const Row(
@@ -179,13 +335,15 @@ class _InputWDEDCState extends State<InputWDEDC> {
                       ),
                       const SizedBox(height: 5),
                       TextFormField(
-                        controller: alamatAgenController,
+                        controller: TextEditingController(text: alamatAgen),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(
                             borderRadius:
                                 BorderRadius.all(Radius.circular(8.0)),
                           ),
                         ),
+                        maxLines: null,
+                        minLines: 1,
                         validator: (value) {
                           if (value!.isEmpty) {
                             return 'Alamat Agen wajib diisi';
@@ -211,7 +369,8 @@ class _InputWDEDCState extends State<InputWDEDC> {
                         children: [
                           Expanded(
                             child: TextFormField(
-                              controller: teleponAgenController,
+                              controller:
+                                  TextEditingController(text: teleponAgen),
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(
                                   borderRadius:
@@ -246,7 +405,7 @@ class _InputWDEDCState extends State<InputWDEDC> {
                       ),
                       const SizedBox(height: 5),
                       TextFormField(
-                        controller: tidController,
+                        controller: TextEditingController(text: tid),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(
                             borderRadius:
@@ -275,7 +434,7 @@ class _InputWDEDCState extends State<InputWDEDC> {
                       ),
                       const SizedBox(height: 5),
                       TextFormField(
-                        controller: midController,
+                        controller: TextEditingController(text: mid),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(
                             borderRadius:
@@ -291,6 +450,18 @@ class _InputWDEDCState extends State<InputWDEDC> {
                         enabled: false,
                       ),
                       const SizedBox(height: 15),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Text('Dokumen JO Penarikan'),
+                          SizedBox(width: 5),
+                          Text(
+                            '*',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
                       Container(
                         decoration: BoxDecoration(
                           border: Border.all(
@@ -358,7 +529,17 @@ class _InputWDEDCState extends State<InputWDEDC> {
                       Row(
                         children: [
                           ElevatedButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              sendHttpRequestWithBody();
+                              if (_formKey.currentState != null &&
+                                  _formKey.currentState!.validate() &&
+                                  _fileName != null &&
+                                  _fileName!.isNotEmpty) {
+                              } else if (_fileName == null ||
+                                  _fileName!.isEmpty) {
+                                setState(() {});
+                              }
+                            },
                             style: ButtonStyle(
                               backgroundColor:
                                   WidgetStateProperty.all<Color>(Colors.blue),
@@ -388,5 +569,105 @@ class _InputWDEDCState extends State<InputWDEDC> {
         ),
       ),
     );
+  }
+
+  String getAlamatAgenFromDatabase(String? namaAgen) {
+    if (namaAgen != null) {
+      final suggestion = suggestions.firstWhere(
+        (suggestion) => suggestion == namaAgen,
+        orElse: () => '',
+      );
+
+      if (suggestion.isNotEmpty) {
+        try {
+          final Map<String, dynamic> suggestionMap = json.decode(suggestion);
+
+          if (suggestionMap.containsKey('alamat')) {
+            return suggestionMap['alamat'];
+          } else {
+            print('Data "alamat" tidak ditemukan dalam JSON saran.');
+          }
+        } catch (e) {
+          print('Gagal mengurai JSON: $e');
+        }
+      }
+    }
+
+    return '';
+  }
+
+  String getTeleponAgenFromDatabase(String? namaAgen) {
+    if (namaAgen != null) {
+      final suggestion = suggestions.firstWhere(
+        (suggestion) => suggestion == namaAgen,
+        orElse: () => '',
+      );
+
+      if (suggestion.isNotEmpty) {
+        try {
+          final Map<String, dynamic> suggestionMap = json.decode(suggestion);
+
+          if (suggestionMap.containsKey('telepon_agen')) {
+            return suggestionMap['telepon_agen'];
+          } else {
+            print('Data "telepon_agen" tidak ditemukan dalam JSON saran.');
+          }
+        } catch (e) {
+          print('Gagal mengurai JSON: $e');
+        }
+      }
+    }
+
+    return '';
+  }
+
+  String getTidFromDatabase(String? namaAgen) {
+    if (namaAgen != null) {
+      final suggestion = suggestions.firstWhere(
+        (suggestion) => suggestion == namaAgen,
+        orElse: () => '',
+      );
+
+      if (suggestion.isNotEmpty) {
+        try {
+          final Map<String, dynamic> suggestionMap = json.decode(suggestion);
+
+          if (suggestionMap.containsKey('tid')) {
+            return suggestionMap['tid'];
+          } else {
+            print('Data "tid" tidak ditemukan dalam JSON saran.');
+          }
+        } catch (e) {
+          print('Gagal mengurai JSON: $e');
+        }
+      }
+    }
+
+    return '';
+  }
+
+  String getMidFromDatabase(String? namaAgen) {
+    if (namaAgen != null) {
+      final suggestion = suggestions.firstWhere(
+        (suggestion) => suggestion == namaAgen,
+        orElse: () => '',
+      );
+
+      if (suggestion.isNotEmpty) {
+        try {
+          final Map<String, dynamic> suggestionMap = json.decode(suggestion);
+
+          if (suggestionMap.containsKey('mid')) {
+            return suggestionMap['mid'];
+          } else {
+            print('Data "mid" tidak ditemukan dalam JSON saran.');
+          }
+        } catch (e) {
+          print('Gagal mengurai JSON: $e');
+        }
+      }
+    }
+
+    return '';
   }
 }

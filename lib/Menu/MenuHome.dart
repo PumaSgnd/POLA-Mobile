@@ -1,9 +1,11 @@
 // MenuHome.dart
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import '../Login/Login.dart';
 import '../user/User.dart';
 import 'package:intl/intl.dart';
-
+import 'package:http/http.dart' as http;
 //Menu
 import '../Menu/MenuPemasangan.dart';
 import 'package:pola/Menu/MenuDrop.dart';
@@ -80,82 +82,58 @@ class _HomePageState extends State<MenuHome> {
     return input[0].toUpperCase() + input.substring(1);
   }
 
+  int stok = 0;
+  int pemasangan = 0;
+  int pm = 0;
+  int cm = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
+  }
+
+  Future<void> fetchData() async {
+    try {
+      final spkResponse = await http
+          .get(Uri.parse('http://10.20.20.195/fms/api/spk_api/get_all'));
+      final pmResponse =
+          await http.get(Uri.parse('https://10.20.20.195/api/pm_api/get_all'));
+      final cmResponse =
+          await http.get(Uri.parse('https://10.20.20.195/api/cm_api/get_all'));
+      final inventoriResponse = await http
+          .get(Uri.parse('https://10.20.20.195/api/inventori_api/get_all_inventories'));
+
+      print('SPK Response: ${spkResponse.body}');
+      print('PM Response: ${pmResponse.body}');
+      print('CM Response: ${cmResponse.body}');
+      print('Inventori Response: ${inventoriResponse.body}');
+
+      setState(() {
+        pemasangan = json.decode(spkResponse.body).length;
+        pm = json.decode(pmResponse.body).length;
+        cm = json.decode(cmResponse.body).length;
+        stok = json.decode(inventoriResponse.body).length;
+      });
+    } catch (e) {
+      print('Error fetching data: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final formattedDate = DateFormat('dd MMMM yyyy').format(DateTime.now());
     final String? username = widget.userData?.name;
 
-    int stokInventori = 0;
-    int pemasangan = 0;
-    int preventiveMaintenance = 0;
-    int correctiveMaintenance = 0;
-
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-      ),
-      backgroundColor: const Color(0xFFE4EDF3),
-      drawer: Drawer(
-        child: Container(
-          width: 200, // Ubah ukuran lebar Drawer sesuai kebutuhan
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              UserAccountsDrawerHeader(
-                accountName: Text(capitalize('Guest')),
-                accountEmail: Text(capitalize('')),
-                currentAccountPicture: const CircleAvatar(
-                  child: Icon(Icons.person),
-                ),
-              ),
-              ListTile(
-                title: const Text('Home'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MenuHome(userData: widget.userData,),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                title: const Text('Pemasangan'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MenuPemasangan(userData: widget.userData),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                title: const Text('Penarikan'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => WithDrawal(userData: widget.userData),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                title: const Text('Logout'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, Login.id);
-                },
-              ),
-            ],
-          ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(20.0),
+        child: AppBar(
+          centerTitle: true,
+          automaticallyImplyLeading: false,
         ),
       ),
+      backgroundColor: const Color(0xFFE4EDF3),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -207,7 +185,7 @@ class _HomePageState extends State<MenuHome> {
                   ),
                   MenuCard(
                     title: 'Stok Inventory',
-                    value: stokInventori,
+                    value: stok,
                     onTap: () {
                       // Tambahkan logika navigasi atau tindakan yang sesuai jika diperlukan
                     },
@@ -220,14 +198,14 @@ class _HomePageState extends State<MenuHome> {
                 children: [
                   MenuCard(
                     title: 'Preventive Maintenance',
-                    value: preventiveMaintenance,
+                    value: pm,
                     onTap: () {
                       // Tambahkan logika navigasi atau tindakan yang sesuai jika diperlukan
                     },
                   ),
                   MenuCard(
                     title: 'Corrective Maintenance',
-                    value: correctiveMaintenance,
+                    value: cm,
                     onTap: () {
                       // Tambahkan logika navigasi atau tindakan yang sesuai jika diperlukan
                     },
