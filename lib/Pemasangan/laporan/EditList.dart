@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:pola/Pemasangan/ListAgen.dart';
+import 'package:http/http.dart' as http;
+import 'package:pola/Pemasangan/LaporanPemasangan.dart';
+import 'dart:convert';
 import '../../user/User.dart';
 
 class EditList extends StatefulWidget {
@@ -47,30 +49,38 @@ class _EditListState extends State<EditList> {
   late TextEditingController _serialNumberController;
   late TextEditingController _tidController;
   late TextEditingController _midController;
-  late TextEditingController _statusController;
   late TextEditingController _catatanController;
   String? _selectedKota;
   String? _selectedKanwil;
-  String? _selectedStatus;
+  String? _selectedStatus = 'semua';
+  List<String> kanwilList = [];
+  List<String> kotaList = [];
 
   @override
   void initState() {
     super.initState();
-    _noSpkController = TextEditingController(text: widget.noSpk);
-    _namaAgenController = TextEditingController(text: widget.namaAgen);
-    _alamatAgenController = TextEditingController(text: widget.alamatAgen);
-    _teleponAgenController = TextEditingController(text: widget.teleponAgen);
-    _serialNumberController = TextEditingController(text: widget.serialNumber);
-    _tidController = TextEditingController(text: widget.tid);
-    _midController = TextEditingController(text: widget.mid);
-    _statusController = TextEditingController(text: widget.status);
-    _catatanController = TextEditingController(text: widget.catatan);
-    _selectedKota = widget.kota;
-    _selectedKanwil = widget.idKanwil;
+    _noSpkController = TextEditingController(text: widget.noSpk ?? '');
+    _namaAgenController = TextEditingController(text: widget.namaAgen ?? '');
+    _alamatAgenController =
+        TextEditingController(text: widget.alamatAgen ?? '');
+    _teleponAgenController =
+        TextEditingController(text: widget.teleponAgen ?? '');
+    _serialNumberController =
+        TextEditingController(text: widget.serialNumber ?? '');
+    _tidController = TextEditingController(text: widget.tid ?? '');
+    _midController = TextEditingController(text: widget.mid ?? '');
+    _selectedStatus = widget.status ?? 'semua';
+    _catatanController = TextEditingController(text: widget.catatan ?? '');
+    _selectedKota = widget.kota ?? 'Pilih Kota';
+    _selectedKanwil = widget.idKanwil ?? 'Pilih Kanwil';
+
+    fetchKanwilList();
+    fetchKotaList();
+    fetchPemasanganById(widget.id ?? '');
   }
 
-  @override
   void dispose() {
+    // Dispose all controllers
     _noSpkController.dispose();
     _namaAgenController.dispose();
     _alamatAgenController.dispose();
@@ -78,15 +88,184 @@ class _EditListState extends State<EditList> {
     _serialNumberController.dispose();
     _tidController.dispose();
     _midController.dispose();
-    _statusController.dispose();
     _catatanController.dispose();
     super.dispose();
   }
 
-  void _save() {
+  Future<void> fetchPemasanganById(String id) async {
+    final url =
+        Uri.parse('http://10.20.20.174/fms/api/pemasangan_api/show/$id');
+    final response = await http.get(url);
+
+    print(response.body);
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(response.body);
+
+      if (jsonResponse['success'] == true) {
+        final data = jsonResponse['data']['data'];
+
+        setState(() {
+          _noSpkController.text = data['no_spk'] ?? '';
+          _namaAgenController.text = data['nama_agen'] ?? '';
+          _alamatAgenController.text = data['alamat_agen'] ?? '';
+          _teleponAgenController.text = data['telepon_agen'] ?? '';
+          _serialNumberController.text = data['serial_number'] ?? '';
+          _tidController.text = data['tid'] ?? '';
+          _midController.text = data['mid'] ?? '';
+          _selectedKota = data['kota'] ?? 'Pilih Kota';
+          _selectedKanwil = data['kanwil'] ?? 'Pilih Kanwil';
+          _selectedStatus = data['status_pemasangan'] ?? 'Status';
+          _catatanController.text = data['catatan_pemasangan'] ?? '';
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(jsonResponse['msg'] ?? 'Failed to fetch data.')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to fetch data.')),
+      );
+    }
+  }
+
+  Future<void> update() async {
     if (_formKey.currentState!.validate()) {
-      // Handle save logic here
-      Navigator.of(context).pop();
+      // final url = Uri.parse('http://10.20.20.174/fms/api/pemasangan_api/update');
+      // final response = await http.post(
+      //   url,
+      //   body: {
+      //     'id': widget.id ?? ''
+      //   },
+      // );
+      final response = await http.post(
+        Uri.parse('http://10.20.20.174/fms/api/pemasangan_api/update'),
+        body: {
+          'id': widget.id ?? '',
+          'serial_number_lama': widget.serialNumber ?? '',
+          'serial_number_baru': _serialNumberController.text.isNotEmpty
+              ? _serialNumberController.text
+              : '',
+          'status_pemasangan': _selectedStatus ?? '',
+          'catatan_pemasangan':
+              _catatanController.text.isNotEmpty ? _catatanController.text : '',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        if (jsonResponse['success']) {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Sukses'),
+                content: const Text('Data Pemasangan berhasil diperbarui'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              LaporanPemasangan(userData: widget.userData),
+                        ),
+                      );
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              );
+            },
+          );
+        } else {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Gagal'),
+                content: Text(jsonResponse['msg']),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Close the dialog
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              );
+            },
+          );
+        }
+      } else {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Gagal'),
+              content: const Text('Gagal memperbarui data'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Close the dialog
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
+  }
+
+  Future<void> fetchKanwilList() async {
+    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kanwilData = responseData['data'];
+          setState(() {
+            kanwilList = kanwilData.map<String>((item) {
+              return item['nama'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kanwil data");
+        }
+      } else {
+        print("Error fetching Kanwil data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kanwil data: $error');
+    }
+  }
+
+  Future<void> fetchKotaList() async {
+    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
+    try {
+      final response = await http.get(Uri.parse(baseUrl));
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['status'] == true) {
+          final List<dynamic> kotaData = responseData['data'];
+          setState(() {
+            kotaList = kotaData.map<String>((item) {
+              return item['city_name'];
+            }).toList();
+          });
+        } else {
+          print("Error fetching Kota data");
+        }
+      } else {
+        print("Error fetching Kota data");
+      }
+    } catch (error) {
+      print('An error occurred while fetching Kota data: $error');
     }
   }
 
@@ -94,7 +273,7 @@ class _EditListState extends State<EditList> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => ListAgen(userData: widget.userData),
+        builder: (context) => LaporanPemasangan(userData: widget.userData),
       ),
     );
     return false;
@@ -129,30 +308,25 @@ class _EditListState extends State<EditList> {
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(
-                          8.0), // Adjust border radius as needed
+                      borderRadius: BorderRadius.circular(8.0),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.grey.withOpacity(0.5),
                           spreadRadius: 2,
                           blurRadius: 5,
-                          offset:
-                              const Offset(0, 3), // changes position of shadow
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
-                    padding:
-                        const EdgeInsets.all(20), // Adjust padding as needed
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            Text('NOMOR JO'),
-                            SizedBox(
-                                width:
-                                    5), // Adjust the width as needed for spacing
+                            Text('Nomor JO'),
+                            SizedBox(width: 5),
                             Text(
                               '*',
                               style: TextStyle(color: Colors.red),
@@ -180,10 +354,8 @@ class _EditListState extends State<EditList> {
                         const Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            Text('AGEN'),
-                            SizedBox(
-                                width:
-                                    5), // Adjust the width as needed for spacing
+                            Text('Nama Agen'),
+                            SizedBox(width: 5),
                             Text(
                               '*',
                               style: TextStyle(color: Colors.red),
@@ -211,10 +383,8 @@ class _EditListState extends State<EditList> {
                         const Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            Text('ALAMAT AGEN'),
-                            SizedBox(
-                                width:
-                                    5), // Adjust the width as needed for spacing
+                            Text('Alamat Agen'),
+                            SizedBox(width: 5),
                             Text(
                               '*',
                               style: TextStyle(color: Colors.red),
@@ -243,10 +413,8 @@ class _EditListState extends State<EditList> {
                         const Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            Text('TELEPON AGEN'),
-                            SizedBox(
-                                width:
-                                    5), // Adjust the width as needed for spacing
+                            Text('Telepon Agen'),
+                            SizedBox(width: 5),
                             Text(
                               '*',
                               style: TextStyle(color: Colors.red),
@@ -277,10 +445,8 @@ class _EditListState extends State<EditList> {
                         const Row(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            Text('SERIAL NUMBER'),
-                            SizedBox(
-                                width:
-                                    5), // Adjust the width as needed for spacing
+                            Text('Serial Number'),
+                            SizedBox(width: 5),
                             Text(
                               '*',
                               style: TextStyle(color: Colors.red),
@@ -309,9 +475,7 @@ class _EditListState extends State<EditList> {
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             Text('TID'),
-                            SizedBox(
-                                width:
-                                    5), // Adjust the width as needed for spacing
+                            SizedBox(width: 5),
                             Text(
                               '*',
                               style: TextStyle(color: Colors.red),
@@ -340,9 +504,7 @@ class _EditListState extends State<EditList> {
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             Text('MID'),
-                            SizedBox(
-                                width:
-                                    5), // Adjust the width as needed for spacing
+                            SizedBox(width: 5),
                             Text(
                               '*',
                               style: TextStyle(color: Colors.red),
@@ -367,161 +529,96 @@ class _EditListState extends State<EditList> {
                           },
                         ),
                         const SizedBox(height: 15),
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Text('KOTA'),
-                            SizedBox(
-                                width:
-                                    5), // Adjust the width as needed for spacing
-                            Text(
-                              '*',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ],
-                        ),
+                        const Text('Kota'),
                         const SizedBox(height: 5),
                         DropdownButtonFormField<String>(
-                          value: _selectedKota,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                          ),
+                          items: kotaList.map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Container(
+                                constraints: BoxConstraints(maxWidth: 135.0),
+                                child: Text(
+                                  value,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                           onChanged: (value) {
                             setState(() {
                               _selectedKota = value;
                             });
                           },
-                          items: <String>[
-                            'Kota 1',
-                            'Kota 2',
-                            'Kota 3',
-                          ].map((String kota) {
-                            return DropdownMenuItem<String>(
-                              value: kota,
-                              child: Text(kota),
-                            );
-                          }).toList(),
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(8.0)),
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Kota is required';
-                            }
-                            return null;
-                          },
+                          value: kotaList.contains(_selectedKota)
+                              ? _selectedKota
+                              : null,
                         ),
                         const SizedBox(height: 15),
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Text('KANWIL'),
-                            SizedBox(
-                                width:
-                                    5), // Adjust the width as needed for spacing
-                            Text(
-                              '*',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ],
-                        ),
+                        const Text('Kanwil'),
                         const SizedBox(height: 5),
                         DropdownButtonFormField<String>(
-                          value: _selectedKanwil,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                          ),
+                          items: kanwilList.map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
                           onChanged: (value) {
                             setState(() {
                               _selectedKanwil = value;
                             });
                           },
+                          value: kanwilList.contains(_selectedKanwil)
+                              ? _selectedKanwil
+                              : null,
+                        ),
+                        const SizedBox(height: 15),
+                        const Text('Status'),
+                        const SizedBox(height: 5),
+                        DropdownButtonFormField<String>(
+                          value: [
+                            'semua',
+                            'done',
+                            'on progress',
+                            'pending',
+                            'failed'
+                          ].contains(_selectedStatus)
+                              ? _selectedStatus
+                              : 'semua', // Atau null untuk tidak ada pilihan awal
                           items: <String>[
-                            'Kanwil 1',
-                            'Kanwil 2',
-                            'Kanwil 3',
-                          ].map((String kanwil) {
+                            'semua',
+                            'done',
+                            'on progress',
+                            'pending',
+                            'failed'
+                          ].map((String value) {
                             return DropdownMenuItem<String>(
-                              value: kanwil,
-                              child: Text(kanwil),
+                              value: value,
+                              child: Text(value),
                             );
                           }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedStatus = value!;
+                            });
+                          },
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(
                               borderRadius:
                                   BorderRadius.all(Radius.circular(8.0)),
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Kanwil is required';
-                            }
-                            return null;
-                          },
                         ),
                         const SizedBox(height: 15),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
-                                Text('Status'),
-                                SizedBox(width: 5),
-                                Text(
-                                  '*',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            DropdownButtonFormField<String>(
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8.0),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12.0,
-                                  vertical: 16.0,
-                                ),
-                              ),
-                              value: _selectedStatus,
-                              onChanged: (String? newValue) {
-                                setState(() {
-                                  _selectedStatus = newValue;
-                                });
-                              },
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'done',
-                                  child: Text('Done'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'onprogress',
-                                  child: Text('On Progress'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'pending',
-                                  child: Text('Pending'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'failed',
-                                  child: Text('Failed'),
-                                ),
-                              ],
-                              validator: (value) {
-                                if (value == null) {
-                                  return 'Please select a status';
-                                }
-                                return null;
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 15),
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Text('CATATAN'),
-                          ],
-                        ),
+                        const Text('Catatan Pemasangan'),
                         const SizedBox(height: 5),
                         TextFormField(
                           controller: _catatanController,
@@ -534,7 +631,7 @@ class _EditListState extends State<EditList> {
                           ),
                           maxLines: 3,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 30),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
@@ -552,7 +649,13 @@ class _EditListState extends State<EditList> {
                                 ),
                               ),
                               onPressed: () {
-                                Navigator.of(context).pop();
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => LaporanPemasangan(
+                                        userData: widget.userData),
+                                  ),
+                                );
                               },
                               child: const Text(
                                 'Tutup',
@@ -575,7 +678,7 @@ class _EditListState extends State<EditList> {
                                   ),
                                 ),
                               ),
-                              onPressed: _save,
+                              onPressed: update,
                               child: const Text(
                                 'Edit',
                                 style: TextStyle(
@@ -588,7 +691,6 @@ class _EditListState extends State<EditList> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10),
                 ],
               ),
             ),

@@ -1,16 +1,13 @@
-// MenuHome.dart
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import '../Login/Login.dart';
 import '../user/User.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+
 //Menu
 import '../Menu/MenuPemasangan.dart';
 import 'package:pola/Menu/MenuDrop.dart';
-// import '../Menu/MenuCM.dart';
-// import '../Menu/MenuPM.dart';
 import '../Menu/Profile.dart';
 import 'package:pola/BottomNavBar.dart';
 
@@ -32,6 +29,96 @@ class _HomePageState extends State<MenuHome> {
     'Penarikan',
     'Profile',
   ];
+
+  int stok = 0;
+  int pemasangan = 0;
+  int pm = 0;
+  int cm = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchPemasangan();
+    // fetchpm();
+    // fetchcm();
+    fetchstok();
+  }
+
+  Future<void> fetchPemasangan() async {
+    final url = 'http://10.20.20.174/fms/api/home_api/pemasangan';
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          pemasangan = data['pemasangan'];
+        });
+      } else {
+        print('Failed to load pemasangan data: ${response.statusCode}');
+        print('Response body: ${response.body}');
+        throw Exception('Failed to load pemasangan data');
+      }
+    } catch (e) {
+      print('Error fetching pemasangan data: $e');
+    }
+  }
+
+  // Future<void> fetchpm() async {
+  //   final url = 'http://10.20.20.195/fms/api/home_api/pm';
+  //   try {
+  //     final response = await http.get(Uri.parse(url));
+  //     if (response.statusCode == 200) {
+  //       final data = jsonDecode(response.body);
+  //       setState(() {
+  //         pm = data['pm'];
+  //       });
+  //     } else {
+  //       print('Failed to load pm data: ${response.statusCode}');
+  //       print('Response body: ${response.body}');
+  //       throw Exception('Failed to load pm data');
+  //     }
+  //   } catch (e) {
+  //     print('Error fetching pm data: $e');
+  //   }
+  // }
+
+  // Future<void> fetchcm() async {
+  //   final url = 'http://10.20.20.195/fms/api/home_api/cm';
+  //   try {
+  //     final response = await http.get(Uri.parse(url));
+  //     if (response.statusCode == 200) {
+  //       final data = jsonDecode(response.body);
+  //       setState(() {
+  //         cm = data['cm'];
+  //       });
+  //     } else {
+  //       print('Failed to load cm data: ${response.statusCode}');
+  //       print('Response body: ${response.body}');
+  //       throw Exception('Failed to load cm data');
+  //     }
+  //   } catch (e) {
+  //     print('Error fetching cm data: $e');
+  //   }
+  // }
+
+  Future<void> fetchstok() async {
+    final url = 'http://10.20.20.174/fms/api/home_api/stok';
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          stok = data['stok'];
+        });
+      } else {
+        print('Failed to load stok data: ${response.statusCode}');
+        print('Response body: ${response.body}');
+        throw Exception('Failed to load stok data');
+      }
+    } catch (e) {
+      print('Error fetching stok data: $e');
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -80,44 +167,6 @@ class _HomePageState extends State<MenuHome> {
       return input;
     }
     return input[0].toUpperCase() + input.substring(1);
-  }
-
-  int stok = 0;
-  int pemasangan = 0;
-  int pm = 0;
-  int cm = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    fetchData();
-  }
-
-  Future<void> fetchData() async {
-    try {
-      final spkResponse = await http
-          .get(Uri.parse('http://10.20.20.195/fms/api/spk_api/get_all'));
-      final pmResponse =
-          await http.get(Uri.parse('https://10.20.20.195/api/pm_api/get_all'));
-      final cmResponse =
-          await http.get(Uri.parse('https://10.20.20.195/api/cm_api/get_all'));
-      final inventoriResponse = await http
-          .get(Uri.parse('https://10.20.20.195/api/inventori_api/get_all_inventories'));
-
-      print('SPK Response: ${spkResponse.body}');
-      print('PM Response: ${pmResponse.body}');
-      print('CM Response: ${cmResponse.body}');
-      print('Inventori Response: ${inventoriResponse.body}');
-
-      setState(() {
-        pemasangan = json.decode(spkResponse.body).length;
-        pm = json.decode(pmResponse.body).length;
-        cm = json.decode(cmResponse.body).length;
-        stok = json.decode(inventoriResponse.body).length;
-      });
-    } catch (e) {
-      print('Error fetching data: $e');
-    }
   }
 
   @override
@@ -172,46 +221,48 @@ class _HomePageState extends State<MenuHome> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 45),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   MenuCard(
                     title: 'Agen',
                     value: pemasangan,
-                    onTap: () {
-                      // Tambahkan logika navigasi atau tindakan yang sesuai jika diperlukan
-                    },
-                  ),
-                  MenuCard(
-                    title: 'Stok Inventory',
-                    value: stok,
-                    onTap: () {
-                      // Tambahkan logika navigasi atau tindakan yang sesuai jika diperlukan
-                    },
+                    onTap: () {},
                   ),
                 ],
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   MenuCard(
-                    title: 'Preventive Maintenance',
-                    value: pm,
-                    onTap: () {
-                      // Tambahkan logika navigasi atau tindakan yang sesuai jika diperlukan
-                    },
-                  ),
-                  MenuCard(
-                    title: 'Corrective Maintenance',
-                    value: cm,
-                    onTap: () {
-                      // Tambahkan logika navigasi atau tindakan yang sesuai jika diperlukan
-                    },
+                    title: 'Stok Inventory',
+                    value: stok,
+                    onTap: () {},
                   ),
                 ],
               ),
+              // const SizedBox(height: 5),
+              // Row(
+              //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              //   children: [
+              //     MenuCard(
+              //       title: 'Preventive Maintenance',
+              //       value: pm,
+              //       onTap: () {
+              //         // Tambahkan logika navigasi atau tindakan yang sesuai jika diperlukan
+              //       },
+              //     ),
+              //     MenuCard(
+              //       title: 'Corrective Maintenance',
+              //       value: cm,
+              //       onTap: () {
+              //         // Tambahkan logika navigasi atau tindakan yang sesuai jika diperlukan
+              //       },
+              //     ),
+              //   ],
+              // ),
             ],
           ),
         ),
@@ -239,12 +290,12 @@ class MenuCard extends StatelessWidget {
     return Container(
       child: Card(
         color: Colors.white,
-        elevation: 6.0,
+        elevation: 10.0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10.0), // Mengatur sudut bulat
         ),
         child: SizedBox(
-          width: 170,
+          width: 320,
           height: 100.0,
           child: InkWell(
             onTap: onTap as void Function()?,

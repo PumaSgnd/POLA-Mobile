@@ -22,6 +22,7 @@ class ListWD extends StatefulWidget {
 }
 
 class DataPenarikan {
+  String? id;
   final String noSPKPenarikan;
   final String namaAgen;
   final String kota;
@@ -32,6 +33,7 @@ class DataPenarikan {
   final DateTime tanggalPenarikan;
 
   DataPenarikan({
+    this.id,
     required this.noSPKPenarikan,
     required this.namaAgen,
     required this.kota,
@@ -50,7 +52,6 @@ class ListWDPage extends State<ListWD> {
   String? selectedKota;
   List<String> kanwilList = [];
   List<String> kotaList = [];
-  String? selectedStatus;
   String _searchQuery = '';
 
   void filterAgents() {
@@ -59,7 +60,6 @@ class ListWDPage extends State<ListWD> {
         final query = _searchQuery.toLowerCase();
         return (selectedKanwil == null || agent.kanwil == selectedKanwil) &&
             (selectedKota == null || agent.kota == selectedKota) &&
-            (selectedStatus == null || agent.status == selectedStatus) &&
             (agent.namaAgen.toLowerCase().contains(query) ||
                 agent.kota.toLowerCase().contains(query) ||
                 agent.kanwil.toLowerCase().contains(query) ||
@@ -71,7 +71,7 @@ class ListWDPage extends State<ListWD> {
   }
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
     try {
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
@@ -95,7 +95,7 @@ class ListWDPage extends State<ListWD> {
   }
 
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
     try {
       final response = await http.get(Uri.parse(baseUrl));
       if (response.statusCode == 200) {
@@ -121,7 +121,7 @@ class ListWDPage extends State<ListWD> {
   Future<void> fetchData() async {
     try {
       final response = await http
-          .get(Uri.parse('http://10.20.20.195/fms/api/penarikan_api/get_all'));
+          .get(Uri.parse('http://10.20.20.174/fms/api/penarikan_api/get_all'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
@@ -134,6 +134,7 @@ class ListWDPage extends State<ListWD> {
             try {
               penarikanList.add(
                 DataPenarikan(
+                  id: item['id'] ?? '',
                   noSPKPenarikan: item['no_spk_penarikan'] ?? '',
                   namaAgen: item['nama_agen'] ?? '',
                   kota: item['kota'] ?? '',
@@ -187,9 +188,12 @@ class ListWDPage extends State<ListWD> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: ListView(
@@ -258,7 +262,7 @@ class ListWDPage extends State<ListWD> {
                               return DropdownMenuItem<String>(
                                 value: value,
                                 child: Container(
-                                  constraints: BoxConstraints(maxWidth: 135.0),
+                                  constraints: BoxConstraints(maxWidth: 100.0),
                                   child: Text(
                                     value,
                                     maxLines: 2,
@@ -279,32 +283,6 @@ class ListWDPage extends State<ListWD> {
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 15),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
-                        labelText: 'Status (Semua)',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'status1',
-                          child: Text('Status 1'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'status2',
-                          child: Text('Status 2'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          selectedStatus = value;
-                          filterAgents();
-                        });
-                      },
-                    ),
                   ),
                   const SizedBox(height: 15),
                   Padding(
@@ -479,7 +457,7 @@ class PenarikanDataSource extends DataTableSource {
                 context,
                 MaterialPageRoute(
                   builder: (context) => DetailPage(
-                    detailId: penarikan.noSPKPenarikan, // Pass ID here
+                    id: penarikan.id,
                     userData: null,
                   ),
                 ),
@@ -489,6 +467,7 @@ class PenarikanDataSource extends DataTableSource {
                 context,
                 MaterialPageRoute(
                   builder: (context) => EditWD(
+                    id: penarikan.id,
                     userData: null,
                   ),
                 ),

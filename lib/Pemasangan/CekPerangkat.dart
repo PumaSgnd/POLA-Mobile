@@ -21,7 +21,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
   String serialNumber = " ";
   String tid = " ";
   String? spk = " ";
-  String? kanwil = " "; 
+  String? kanwil = " ";
   String? namaAgen;
   List<String> suggestions = [];
   List<Map<String, dynamic>> suggestionList = [];
@@ -85,79 +85,96 @@ class _CekPerangkatState extends State<CekPerangkat> {
   }
 
   Future<void> save() async {
-    // final url =
-    //     Uri.parse('http://10.20.20.195/fms/api/pemasangan_api/save_test');
+    final checkSnUrl = Uri.parse(
+        'http://10.20.20.174/fms/api/pemasangan_api/check_serial_number');
+    final saveTestUrl =
+        Uri.parse('http://10.20.20.174/fms/api/pemasangan_api/save_test');
+    final saveSnUrl =
+        Uri.parse('http://10.20.20.174/fms/api/pemasangan_api/save/serial_number');
 
-    // final Map<String, dynamic> body = Map<String, dynamic>();
+    final serialNumber = _serialNumberController.text;
 
-    // for (int i = 0; i < testFungsiItems.length; i++) {
-    //   body['fungsi[$i]'] = json.encode(testFungsiItems[i]);
-    // }
-
-    // print(body);
-
-    final url =
-        Uri.parse('http://10.20.20.195/fms/api/pemasangan_api/save_test');
-
-    final Map<String, dynamic> body = {};
-
-    for (int i = 0; i < testFungsiItems.length; i++) {
-      final item = testFungsiItems[i];
-      final itemId = item['id'].toString();
-
-      body['fungsi[$i]'] = {
-        'id': item['id'],
-        'item': item['item'],
-        'status': testFungsi[itemId] ?? '',
-      };
-    }
-
-    final response = await http.post(
-      url,
-      body: json.encode({
-        'id_spk': spk,
-        'fungsi_perangkat': fungsiPerangkat,
-        'catatan_test': catatanCekPerangkat,
-        'serial_number': _serialNumberController.text,
-        'id_item_test': body,
-        'kawil': kanwil,
-      }),
+    // Pengecekan Serial Number
+    final checkResponse = await http.post(
+      checkSnUrl,
+      body: json.encode({'serial_number': serialNumber}),
+      headers: {'Content-Type': 'application/json'},
     );
 
-    print(response.body);
+    final checkResult = json.decode(checkResponse.body);
 
-    // if (this.products != null) {
+    // Simpan Serial Number ke db spk_agen terlepas dari sudah terdaftar atau belum
+    final saveSnResponse = await http.post(
+      saveSnUrl,
+      body: json.encode({
+        'id_spk': spk,
+        'serial_number': serialNumber,
+        'id_kanwil': kanwil,
+      }),
+      headers: {'Content-Type': 'application/json'},
+    );
 
-    // }
+    if (saveSnResponse.statusCode == 200) {
+      final saveSnResult = json.decode(saveSnResponse.body);
 
-    // final idItemTestString = testFungsiItems.map((item) {
-    //   return 'id_item_test[${item['id']}]=${Uri.encodeComponent(testFungsi[item['id'].toString()] ?? '')}';
-    // }).join('&');
+      if (saveSnResult['success'] == true) {
+        print('Serial Number berhasil disimpan di spk_agen');
 
-    // print(idItemTestString);
+        if (checkResult['is_registered'] == true) {
+          // Jika Serial Number sudah terdaftar, tampilkan pesan
+          print('Serial Number Sudah Terdaftar.');
+        } else {
+          // Lanjutkan untuk menyimpan data test setelah SN disimpan
+          final Map<String, dynamic> body = {};
 
-    // if (response.statusCode == 200) {
-    //   final responseData = jsonDecode(response.body);
-    //   if (responseData['success']) {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(content: Text(responseData['msg'])),
-    //     );
-    //     // Clear fields or navigate as needed
-    //   } else {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(content: Text(responseData['err_msg'])),
-    //     );
-    //   }
-    // } else {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     SnackBar(content: Text('Failed to save data')),
-    //   );
-    // }
+          for (int i = 0; i < testFungsiItems.length; i++) {
+            final item = testFungsiItems[i];
+            final itemId = item['id'].toString();
+
+            body['fungsi[$i]'] = {
+              'id': item['id'],
+              'item': item['item'],
+              'status': testFungsi[itemId] ?? '',
+            };
+          }
+
+          final response = await http.post(
+            saveTestUrl,
+            body: json.encode({
+              'id_spk': spk,
+              'fungsi_perangkat': fungsiPerangkat,
+              'catatan_test': catatanCekPerangkat,
+              'serial_number': serialNumber,
+              'id_item_test': body,
+              'kawil': kanwil,
+            }),
+            headers: {'Content-Type': 'application/json'},
+          );
+
+          if (response.statusCode == 200) {
+            final saveResult = json.decode(response.body);
+            if (saveResult['success'] == true) {
+              print('Hasil cek perangkat berhasil disimpan');
+            } else {
+              print(
+                  'Hasil cek perangkat gagal disimpan: ${saveResult['err_msg']}');
+            }
+          } else {
+            print('Error: ${response.statusCode}');
+          }
+        }
+      } else {
+        print(
+            'Gagal menyimpan Serial Number di spk_agen: ${saveSnResult['err_msg']}');
+      }
+    } else {
+      print('Error: ${saveSnResponse.statusCode}');
+    }
   }
 
   Future<void> fetchAgenSuggestions(String keyword) async {
     final Uri uri = Uri.parse(
-      'http://10.20.20.195/fms/api/pemasangan_api/find_by_agen?nama_agen=$keyword',
+      'http://10.20.20.174/fms/api/pemasangan_api/find_by_agen?nama_agen=$keyword',
     );
 
     try {
@@ -204,7 +221,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
 
   Future<void> fetchCekPerangkat() async {
     final String baseUrl =
-        "http://10.20.20.195/fms/api/pemasangan_api/cek_perangkat";
+        "http://10.20.20.174/fms/api/pemasangan_api/cek_perangkat";
 
     try {
       final response = await http.get(Uri.parse(baseUrl));
@@ -313,7 +330,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
                       Visibility(
                         visible: isBoxVisible,
                         child: Container(
-                          height: 100, // Adjust height as needed
+                          height: 50, // Adjust height as needed
                           decoration: BoxDecoration(
                             border: Border.all(
                               color: Colors.grey,
@@ -542,8 +559,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
                               style: TextStyle(fontSize: 16.0),
                             ),
                             const SizedBox(
-                              height:
-                                  8.0, // Menambahkan jarak antara judul dan pilihan radio
+                              height: 8.0,
                             ),
                             Column(
                               children: testFungsiItems.map((item) {

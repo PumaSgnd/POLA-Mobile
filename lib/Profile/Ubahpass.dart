@@ -48,7 +48,7 @@ class _UpdatePasswordScreenState extends State<UpdatePassword> {
     // );
 
     final url =
-        Uri.parse('http://10.20.20.195/fms/api/user_api/update_password_user');
+        Uri.parse('http://10.20.20.174/fms/api/user_api/update_password_user');
     final response = await http.post(
       url,
       body: {

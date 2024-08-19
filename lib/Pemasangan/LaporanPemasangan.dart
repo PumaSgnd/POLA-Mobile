@@ -19,6 +19,7 @@ class LaporanPemasangan extends StatefulWidget {
 }
 
 class Laporan {
+  String? idSPK;
   final String isAktif;
   final String noSPK;
   final String agentName;
@@ -31,6 +32,7 @@ class Laporan {
   final String status;
 
   Laporan({
+    this.idSPK,
     required this.isAktif,
     required this.noSPK,
     required this.agentName,
@@ -68,7 +70,7 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
     try {
       // Fetch data from API
       final response = await http
-          .get(Uri.parse('http://10.20.20.195/fms/api/spk_api/get_all'));
+          .get(Uri.parse('http://10.20.20.174/fms/api/spk_api/get_all'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
@@ -79,6 +81,7 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
         List<Laporan> tempLaporan = data
             .map((item) {
               return Laporan(
+                idSPK: item['id'] ?? '',
                 isAktif: item['is_aktif'] ?? '0',
                 noSPK: item['no_spk'] ?? '',
                 agentName: item['nama_agen'] ?? '',
@@ -150,7 +153,7 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
   }
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
     try {
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
@@ -174,7 +177,7 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
   }
 
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
     try {
       final response = await http.get(Uri.parse(baseUrl));
       if (response.statusCode == 200) {
@@ -222,9 +225,12 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: ListView(
@@ -232,7 +238,7 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
             const Padding(
               padding: EdgeInsets.all(20.0),
               child: Text(
-                'Laporan Pemasangan',
+                'List Order Pemasangan',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -293,7 +299,7 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
                               return DropdownMenuItem<String>(
                                 value: value,
                                 child: Container(
-                                  constraints: BoxConstraints(maxWidth: 135.0),
+                                  constraints: BoxConstraints(maxWidth: 100.0),
                                   child: Text(
                                     value,
                                     maxLines: 2,
@@ -597,8 +603,9 @@ class LaporanDataSource extends DataTableSource {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const DetailPage(
-                        detailId: 'valid_id',
+                      builder: (context) => DetailPage(
+                        // id: laporan.idSPK ?? 'defaultID',\
+                        id: laporan.idSPK ?? 'id',
                         userData: null,
                       ),
                     ),
@@ -607,7 +614,8 @@ class LaporanDataSource extends DataTableSource {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const EditList(
+                      builder: (context) => EditList(
+                        id: laporan.idSPK,
                         userData: null,
                       ),
                     ),

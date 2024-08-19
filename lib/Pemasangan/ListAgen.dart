@@ -23,6 +23,7 @@ class ListAgen extends StatefulWidget {
 }
 
 class Agent {
+  String? idSPK;
   final String is_aktif;
   final String noSPK;
   final String agentName;
@@ -34,6 +35,7 @@ class Agent {
   final DateTime installationDate;
 
   Agent({
+    this.idSPK,
     required this.is_aktif,
     required this.noSPK,
     required this.agentName,
@@ -59,7 +61,7 @@ class _ListAgenMenuState extends State<ListAgen> {
   Future<void> fetchData() async {
     try {
       final response = await http
-          .get(Uri.parse('http://10.20.20.195/fms/api/spk_api/get_all'));
+          .get(Uri.parse('http://10.20.20.174/fms/api/spk_api/get_all'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
@@ -72,6 +74,7 @@ class _ListAgenMenuState extends State<ListAgen> {
             try {
               agents.add(
                 Agent(
+                  idSPK: item['id'] ?? '',
                   is_aktif: item['is_aktif'] ?? '',
                   noSPK: item['no_spk'] ?? '',
                   agentName: item['nama_agen'] ?? '',
@@ -104,19 +107,37 @@ class _ListAgenMenuState extends State<ListAgen> {
     setState(() {
       filteredAgen = agents.where((agent) {
         final query = _searchQuery.toLowerCase();
-        return agent.agentName.toLowerCase().contains(query) ||
+
+        // Pencocokan teks
+        final matchesQuery = agent.agentName.toLowerCase().contains(query) ||
             agent.kota.toLowerCase().contains(query) ||
             agent.kanwil.toLowerCase().contains(query) ||
             agent.noSPK.toLowerCase().contains(query) ||
             agent.simCard.toLowerCase().contains(query) ||
             agent.serialNumber.toLowerCase().contains(query) ||
             agent.status.toLowerCase().contains(query);
+
+        // Pencocokan berdasarkan kategori filter
+        final matchesKanwil = selectedKanwil == null ||
+            selectedKanwil!.isEmpty ||
+            agent.kanwil.toLowerCase() == selectedKanwil!.toLowerCase();
+
+        final matchesKota = selectedKota == null ||
+            selectedKota!.isEmpty ||
+            agent.kota.toLowerCase() == selectedKota!.toLowerCase();
+
+        final matchesStatus = selectedStatus == null ||
+            selectedStatus!.isEmpty ||
+            selectedStatus == 'semua' ||
+            agent.status.toLowerCase() == selectedStatus!.toLowerCase();
+
+        return matchesQuery && matchesKanwil && matchesKota && matchesStatus;
       }).toList();
     });
   }
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
     try {
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
@@ -140,7 +161,7 @@ class _ListAgenMenuState extends State<ListAgen> {
   }
 
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
     try {
       final response = await http.get(Uri.parse(baseUrl));
       if (response.statusCode == 200) {
@@ -189,10 +210,13 @@ class _ListAgenMenuState extends State<ListAgen> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(20.0),
+        child: AppBar(
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
+      ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: ListView(
           children: [
@@ -241,6 +265,7 @@ class _ListAgenMenuState extends State<ListAgen> {
                             onChanged: (value) {
                               setState(() {
                                 selectedKanwil = value;
+                                filterAgents();
                               });
                             },
                             value: selectedKanwil,
@@ -249,8 +274,7 @@ class _ListAgenMenuState extends State<ListAgen> {
                       ),
                       Expanded(
                         child: Padding(
-                          padding:
-                              const EdgeInsets.only(left: 5.0, right: 5.0),
+                          padding: const EdgeInsets.only(left: 5.0, right: 5.0),
                           child: DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'Kota (Semua)',
@@ -259,12 +283,21 @@ class _ListAgenMenuState extends State<ListAgen> {
                             items: kotaList.map((String value) {
                               return DropdownMenuItem<String>(
                                 value: value,
-                                child: Text(value),
+                                child: Container(
+                                  constraints: BoxConstraints(maxWidth: 100.0),
+                                  child: Text(
+                                    value,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
+                                  ),
+                                ),
                               );
                             }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 selectedKota = value;
+                                filterAgents();
                               });
                             },
                             value: selectedKota,
@@ -468,9 +501,10 @@ class AgentDataSource extends DataTableSource {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const DetailPage(
-                    detailId: '',
+                  builder: (context) => DetailPage(
+                    // id: agent.idSPK ?? 'defaultID',
                     userData: null,
+                    id: agent.idSPK ?? 'id',
                   ),
                 ),
               );
@@ -478,7 +512,8 @@ class AgentDataSource extends DataTableSource {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const EditAgen(
+                  builder: (context) => EditAgen(
+                    id: agent.idSPK,
                     userData: null,
                   ),
                 ),

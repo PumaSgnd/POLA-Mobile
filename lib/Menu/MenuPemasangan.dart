@@ -97,10 +97,13 @@ class _MenuPemasanganState extends State<MenuPemasangan> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(20.0),
+        child: AppBar(
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
+      ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: ListView(
           padding: const EdgeInsets.all(20.0),

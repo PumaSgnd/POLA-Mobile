@@ -93,9 +93,12 @@ class _WithDrawalState extends State<WithDrawal> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: ListView(
@@ -126,7 +129,9 @@ class _WithDrawalState extends State<WithDrawal> {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => InputWDEDC(userData: widget.userData,),
+                            builder: (context) => InputWDEDC(
+                              userData: widget.userData,
+                            ),
                           ),
                         );
                       },
@@ -139,7 +144,9 @@ class _WithDrawalState extends State<WithDrawal> {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ListWD(userData: widget.userData,),
+                            builder: (context) => ListWD(
+                              userData: widget.userData,
+                            ),
                           ),
                         );
                       },
@@ -157,7 +164,8 @@ class _WithDrawalState extends State<WithDrawal> {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => LaporanWD(userData: widget.userData),
+                            builder: (context) =>
+                                LaporanWD(userData: widget.userData),
                           ),
                         );
                       },

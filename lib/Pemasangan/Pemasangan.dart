@@ -9,6 +9,7 @@ import 'package:location/location.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:path/path.dart' as path;
+import 'package:path/path.dart';
 //Menu
 import '../Menu/MenuPemasangan.dart';
 import '../user/User.dart';
@@ -29,9 +30,13 @@ class Pemasangan extends StatefulWidget {
 class _PemasanganState extends State<Pemasangan> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _namaAgenController = TextEditingController();
+  // final TextEditingController _teleponAgenController = TextEditingController();
+  List<Map<String, dynamic>> suggestionList = [];
+  String? spk = " ";
+  String? kanwil = " ";
   String tid = '';
   String serialNumber = '';
-  String teleponAgen = '';
+  String? teleponAgen = '';
   String? alamatAgen = " ";
   String _latitude = '';
   String _longitude = '';
@@ -58,7 +63,12 @@ class _PemasanganState extends State<Pemasangan> {
       target: LatLng(-6.200000, 106.816666),
       zoom: 15,
     );
-    _namaAgenController.addListener(_fetchAgentData);
+    _namaAgenController.addListener(_onNamaAgenChanged);
+    alamatAgen = '';
+    tid = '';
+    serialNumber = '';
+    teleponAgen = '';
+    kanwil = '';
   }
 
   @override
@@ -67,31 +77,58 @@ class _PemasanganState extends State<Pemasangan> {
     super.dispose();
   }
 
-  Future<void> _fetchAgentData() async {
-    String namaAgen = _namaAgenController.text;
-    if (namaAgen.isEmpty) {
-      return;
-    }
+  void _onNamaAgenChanged() {
+    final value = _namaAgenController.text;
+    setState(() {
+      isBoxVisible = value.isNotEmpty;
+    });
+  }
+
+  Future<void> _fetchAgentData(String keyword) async {
+    final Uri uri = Uri.parse(
+      'http://10.20.20.174/fms/api/pemasangan_api/find_by_agen_pemasangan?nama_agen=$keyword',
+    );
 
     try {
-      final response = await http.get(
-        Uri.parse('https://localhost/fms/api/spk_api/get_all=$namaAgen'),
-      );
+      final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          _namaAgenController.text = data['nama_agen'];
-          tid = data['tid'];
-          alamatAgen = data['alamat_agen'];
-          teleponAgen = data['telepon_agen'];
-          serialNumber = data['serial_number'];
-        });
+        final Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData != null && responseData.containsKey('suggestions')) {
+          suggestionList =
+              List<Map<String, dynamic>>.from(responseData['suggestions']);
+
+          setState(() {
+            suggestions = suggestionList
+                .map((suggestion) => suggestion['value'].toString())
+                .toList();
+
+            if (suggestions.isNotEmpty) {
+              final selectedSuggestion = suggestions[0];
+              final suggestionMap = suggestionList.firstWhere(
+                (suggestion) =>
+                    suggestion['value'].toString() == selectedSuggestion,
+                orElse: () => <String, dynamic>{},
+              );
+
+              if (suggestionMap.isNotEmpty) {
+                alamatAgen = suggestionMap['alamat'] ?? '';
+                tid = suggestionMap['tid'] ?? '';
+                spk = suggestionMap['id_spk'] ?? '';
+                kanwil = suggestionMap['id_kanwil'] ?? '';
+                serialNumber = suggestionMap['serial_number'] ?? '';
+                teleponAgen = suggestionMap['telepon_agen'] ?? '';
+                // print(spk);
+              }
+            }
+          });
+        }
       } else {
-        // Handle error
+        print('Error: ${response.statusCode}');
       }
     } catch (e) {
-      // Handle exception
+      print('Error: $e');
     }
   }
 
@@ -229,86 +266,112 @@ class _PemasanganState extends State<Pemasangan> {
     });
   }
 
-  void _submitForm() async {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      // Prepare data to send to server
-      final postData = {
-        // ... prepare your data ...
-      };
+      _formKey.currentState!.save();
 
       try {
-        final response = await http.post(
-          Uri.parse('https://your-server-url.com/api/save-data'),
-          body: json.encode(postData),
-          headers: {'Content-Type': 'application/json'},
-        );
+        // Create the multipart request
+        final uri =
+            Uri.parse("http://10.20.20.174/fms/api/pemasangan_api/save");
+        var request = http.MultipartRequest("POST", uri);
+
+        // Add form fields
+        request.fields['id_spk'] = spk ?? '';
+        request.fields['nama_agen'] = _namaAgenController.text;
+        request.fields['serial_number'] = serialNumber ?? '';
+        request.fields['tid'] = tid ?? '';
+        request.fields['alamat_agen'] = alamatAgen ?? '';
+        request.fields['telepon_agen'] = teleponAgen ?? '';
+        request.fields['longitude'] = _longitude;
+        request.fields['latitude'] = _latitude;
+        request.fields['status'] = _selectedStatus ?? '';
+        request.fields['catatan'] = catatan ?? '';
+
+        // Add the images
+        if (_pemasanganFoto != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'foto_pemasangan',
+            _pemasanganFoto!.path,
+            filename: basename(_pemasanganFoto!.path),
+          ));
+        }
+        if (_agenPerangkatFoto != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'foto_agen',
+            _agenPerangkatFoto!.path,
+            filename: basename(_agenPerangkatFoto!.path),
+          ));
+        }
+        if (_tempatFoto != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'foto_tempat',
+            _tempatFoto!.path,
+            filename: basename(_tempatFoto!.path),
+          ));
+        }
+        if (_bannerFoto != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'foto_banner',
+            _bannerFoto!.path,
+            filename: basename(_bannerFoto!.path),
+          ));
+        }
+        if (_fotoTransaksiTunai != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'foto_transaksi1',
+            _fotoTransaksiTunai!.path,
+            filename: basename(_fotoTransaksiTunai!.path),
+          ));
+        }
+        if (_fotoTransaksiDebit != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'foto_transaksi2',
+            _fotoTransaksiDebit!.path,
+            filename: basename(_fotoTransaksiDebit!.path),
+          ));
+        }
+        if (_fotoTransaksiAntarBank != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'foto_transaksi3',
+            _fotoTransaksiAntarBank!.path,
+            filename: basename(_fotoTransaksiAntarBank!.path),
+          ));
+        }
+
+        print(request.fields);
+
+        // Send the request
+        var response = await request.send();
 
         if (response.statusCode == 200) {
-          // Handle success
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: const Text('Success'),
-                content: const Text('Data Pemasangan Berhasil Disimpan'),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
-              );
-            },
-          );
+          final respStr = await response.stream.bytesToString();
+          var jsonResponse = json.decode(respStr);
+
+          if (jsonResponse['success']) {
+            // Handle success, show success message
+            print("Data saved successfully!");
+          } else {
+            // Handle error, show error message
+            print("Failed to save data: ${jsonResponse['err_msg']}");
+          }
         } else {
-          // Handle error
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: const Text('Error'),
-                content: const Text(
-                    'Gagal Menyimpan Data. Periksa Kembali Inputan Anda!.'),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
-              );
-            },
-          );
+          // Print the response body for debugging purposes
+          final respStr = await response.stream.bytesToString();
+
+          print("Request failed with status: ${response.statusCode}");
+          print("Response body: $respStr");
         }
-      } catch (e) {
-        // Handle exception
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Exception'),
-              content: Text('An error occurred: $e'),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          },
-        );
+      } catch (error) {
+        // Tangani error apapun yang terjadi selama eksekusi
+        print("An error occurred: $error");
       }
     }
   }
 
   Future<bool> _onWillPop() async {
     Navigator.pushReplacement(
-      context,
+      context as BuildContext,
       MaterialPageRoute(
         builder: (context) => MenuPemasangan(userData: widget.userData),
       ),
@@ -366,10 +429,13 @@ class _PemasanganState extends State<Pemasangan> {
                           height: 50,
                           child: TextFormField(
                             controller: _namaAgenController,
-                            onChanged: (value) {
+                            onChanged: (value) async {
                               setState(() {
                                 isBoxVisible = value.isNotEmpty;
                               });
+                              if (value.isNotEmpty) {
+                                await _fetchAgentData(value);
+                              }
                             },
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(
@@ -383,7 +449,7 @@ class _PemasanganState extends State<Pemasangan> {
                           visible: isBoxVisible,
                           child: Container(
                             height:
-                                100, // Atur tinggi Container sesuai kebutuhan
+                                50, // Atur tinggi Container sesuai kebutuhan
                             decoration: BoxDecoration(
                               border: Border.all(
                                 color: Colors.grey,
@@ -397,25 +463,53 @@ class _PemasanganState extends State<Pemasangan> {
                                 return ListTile(
                                   title: Text(suggestions[index]),
                                   onTap: () {
-                                    setState(() {
-                                      selectedNamaAgen = suggestions[index];
-                                      _namaAgenController.text =
-                                          suggestions[index];
-                                      isBoxVisible = false;
-                                      alamatAgen = getAlamatAgenFromDatabase(
-                                          selectedNamaAgen);
-                                      tid =
-                                          getTidFromDatabase(selectedNamaAgen);
-                                      serialNumber =
-                                          getSerialNumberFromDatabase(
-                                              selectedNamaAgen);
-                                      teleponAgen = getTeleponAgenFromDatabase(
-                                          selectedNamaAgen);
-                                    });
+                                    final selectedSuggestion =
+                                        suggestions[index];
+                                    final suggestionMap =
+                                        suggestionList.firstWhere(
+                                      (suggestion) =>
+                                          suggestion['value'] ==
+                                          selectedSuggestion,
+                                      orElse: () => <String,
+                                          dynamic>{}, // Return empty map
+                                    );
+
+                                    if (suggestionMap.isNotEmpty) {
+                                      setState(() {
+                                        print(suggestionMap);
+                                        selectedNamaAgen = selectedSuggestion;
+                                        _namaAgenController.text =
+                                            selectedSuggestion;
+                                        spk = suggestionMap['id_spk'] ?? '';
+                                        serialNumber =
+                                            suggestionMap['serial_number'] ??
+                                                '';
+                                        alamatAgen =
+                                            suggestionMap['alamat'] ?? '';
+                                        tid = suggestionMap['tid'] ?? '';
+                                        teleponAgen =
+                                            suggestionMap['telepon_agen'] ?? '';
+                                        isBoxVisible = false;
+                                      });
+                                    } else {
+                                      print('Saran yang dipilih tidak valid.');
+                                    }
                                   },
                                 );
                               },
                             ),
+                          ),
+                        ),
+                        Offstage(
+                          offstage: true, // Hide this widget from the UI
+                          child: TextFormField(
+                            controller: TextEditingController(text: spk),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Field ini wajib diisi';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -514,12 +608,11 @@ class _PemasanganState extends State<Pemasangan> {
                         const SizedBox(height: 5),
                         TextFormField(
                           controller: TextEditingController(text: teleponAgen),
-                          readOnly: true,
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
                             prefixText: '+62 ',
                             contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 20),
+                                horizontal: 10, vertical: 15),
                           ),
                           validator: (value) {
                             if (value!.isEmpty) {
@@ -1282,8 +1375,8 @@ class _PemasanganState extends State<Pemasangan> {
         try {
           final Map<String, dynamic> suggestionMap = json.decode(suggestion);
 
-          if (suggestionMap.containsKey('teleponAgen')) {
-            return suggestionMap['teleponAgen'];
+          if (suggestionMap.containsKey('telepon_agen')) {
+            return suggestionMap['telepon_agen'];
           } else {
             print('Data "teleponAgen" tidak ditemukan dalam JSON saran.');
           }
@@ -1292,7 +1385,30 @@ class _PemasanganState extends State<Pemasangan> {
         }
       }
     }
+    return '';
+  }
 
+  String getspkFromDatabase(String? namaAgen) {
+    if (namaAgen != null) {
+      final suggestion = suggestions.firstWhere(
+        (suggestion) => suggestion == namaAgen,
+        orElse: () => '',
+      );
+
+      if (suggestion.isNotEmpty) {
+        try {
+          final Map<String, dynamic> suggestionMap = json.decode(suggestion);
+
+          if (suggestionMap.containsKey('id_spk')) {
+            return suggestionMap['id_spk'];
+          } else {
+            print('Data "spk" tidak ditemukan dalam JSON saran.');
+          }
+        } catch (e) {
+          print('Gagal mengurai JSON: $e');
+        }
+      }
+    }
     return '';
   }
 }

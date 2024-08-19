@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:pola/Pemasangan/ListAgen.dart';
-import 'package:pola/Penarikan/ListWD.dart';
-
+import 'package:pola/Penarikan/LaporanWD.dart';
+import 'package:path/path.dart' as path;
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../user/User.dart';
 
 // Define a data model for the details
-class DetailModel {
+class Pemasangan {
+  String? id;
   final String noSpk;
+  final String noSPKPenarikan;
   final String tglInputSpk;
   final String jamInputSpk;
   final String tglPemasangan;
@@ -29,8 +32,10 @@ class DetailModel {
   final String fotoTransaksi2;
   final String fotoTransaksi3;
 
-  DetailModel({
+  Pemasangan({
+    this.id,
     required this.noSpk,
+    required this.noSPKPenarikan,
     required this.tglInputSpk,
     required this.jamInputSpk,
     required this.tglPemasangan,
@@ -53,51 +58,94 @@ class DetailModel {
     required this.fotoTransaksi2,
     required this.fotoTransaksi3,
   });
+
+  factory Pemasangan.fromJson(Map<String, dynamic> json) {
+    return Pemasangan(
+      id: json['id'],
+      noSpk: json['no_spk'] ?? '',
+      tglInputSpk: json['tgl_penarikan'] != null
+          ? json['tgl_penarikan'].split(' ')[0]
+          : '',
+      jamInputSpk: json['tgl_penarikan'] != null
+          ? json['tgl_penarikan'].split(' ')[1]
+          : '',
+      noSPKPenarikan: json['no_spk_penarikan'],
+      tglPemasangan: json['tgl_pemasangan'] != null
+          ? json['tgl_pemasangan'].split(' ')[0]
+          : '',
+      jamPemasangan: json['tgl_pemasangan'] != null
+          ? json['tgl_pemasangan'].split(' ')[1]
+          : '',
+      namaAgen: json['nama_agen'] ?? '',
+      teleponAgen: json['telepon'] ?? '',
+      alamatAgen: json['alamat_agen'] ?? '',
+      kota: json['kota'] ?? '',
+      kanwil: json['kanwil'] ?? '',
+      serialNumber: json['serial_number'] ?? '',
+      tid: json['tid'] ?? '',
+      mid: json['mid'] ?? '',
+      fungsiPerangkat: json['fungsi_perangkat'] ?? '',
+      statusPemasangan: json['status_pemasangan'] ?? '',
+      fotoPemasangan: json['foto_pemasangan'] ?? '',
+      fotoAgen: json['foto_agen'] ?? '',
+      fotoBanner: json['foto_banner'] ?? '',
+      fotoTempat: json['foto_tempat'] ?? '',
+      fotoTransaksi1: json['foto_transaksi1'] ?? '',
+      fotoTransaksi2: json['foto_transaksi2'] ?? '',
+      fotoTransaksi3: json['foto_transaksi3'] ?? '',
+    );
+  }
 }
 
 class DetailPage extends StatefulWidget {
-  final String detailId;
+  final String? id;
   final User? userData;
-  const DetailPage({Key? key, required this.detailId, required this.userData}) : super(key: key);
+  const DetailPage({Key? key, required this.id, required this.userData})
+      : super(key: key);
 
   @override
   DetailPageState createState() => DetailPageState();
 }
 
 class DetailPageState extends State<DetailPage> {
-  Future<DetailModel> fetchDetailData(String detailId) async {
-    // Simulate fetching data from your database
-    return DetailModel(
-      noSpk: "SPK123",
-      tglInputSpk: "2023-07-02",
-      jamInputSpk: "10:00:00",
-      tglPemasangan: "2023-07-02",
-      jamPemasangan: "10:00:00",
-      namaAgen: "Nama Agen",
-      teleponAgen: "08123456789",
-      alamatAgen: "Alamat Agen",
-      kota: "Kota",
-      kanwil: "Kanwil",
-      serialNumber: "SN123456",
-      tid: "TID123",
-      mid: "MID123",
-      fungsiPerangkat: "Fungsi Perangkat",
-      statusPemasangan: "Terpasang",
-      fotoPemasangan: "https://via.placeholder.com/150",
-      fotoAgen: "https://via.placeholder.com/150",
-      fotoBanner: "https://via.placeholder.com/150",
-      fotoTempat: "https://via.placeholder.com/150",
-      fotoTransaksi1: "https://via.placeholder.com/150",
-      fotoTransaksi2: "https://via.placeholder.com/150",
-      fotoTransaksi3: "https://via.placeholder.com/150",
-    );
+  Future<Pemasangan> fetchPenarikan(String id) async {
+    final String apiUrl =
+        'http://10.20.20.174/fms/api/penarikan_api/view_detail/$id';
+
+    print(id);
+
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+
+      if (response.statusCode == 200) {
+        print('Response body: ${response.body}');
+        final responseData = json.decode(response.body);
+
+        if (responseData['success']) {
+          final data = responseData['data']['spk'];
+          final pemasangan = Pemasangan.fromJson(data);
+
+          // You can use the 'pemasangan' object as needed
+          print(pemasangan.noSpk);
+
+          // Return the Pemasangan model with the fetched data
+          return pemasangan;
+        } else {
+          throw Exception('Failed to load details: ${responseData['message']}');
+        }
+      } else {
+        throw Exception('Failed to load details: ${response.reasonPhrase}');
+      }
+    } catch (error) {
+      throw Exception('Failed to load details: $error');
+    }
   }
 
   Future<bool> _onWillPop() async {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => ListWD(userData: widget.userData),
+        builder: (context) => LaporanWD(userData: widget.userData),
       ),
     );
     return false;
@@ -108,26 +156,29 @@ class DetailPageState extends State<DetailPage> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
-        body: FutureBuilder<DetailModel>(
-          future: fetchDetailData(widget.detailId),
+        body: FutureBuilder<Pemasangan>(
+          future: fetchPenarikan(widget.id!),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(child: Text("Error: ${snapshot.error}"));
             } else if (snapshot.hasData) {
-              DetailModel detail = snapshot.data!;
+              Pemasangan detail = snapshot.data!;
               return Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: ListView(
                   children: [
                     const Text(
-                      'Input JO Penarikan',
+                      'Detail Penarikan',
                       style: TextStyle(
                         fontSize: 16.0,
                         fontWeight: FontWeight.bold,
@@ -191,7 +242,7 @@ class DetailPageState extends State<DetailPage> {
     );
   }
 
-  Widget buildJobOrderCard(DetailModel detail) {
+  Widget buildJobOrderCard(Pemasangan detail) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -201,10 +252,11 @@ class DetailPageState extends State<DetailPage> {
             const Text('Job Orders',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             buildRow('Nomor JO', detail.noSpk),
-            buildRow('Tanggal Input JO',
-                '${detail.tglInputSpk} ${detail.jamInputSpk}'),
             buildRow('Tanggal Pemasangan JO',
                 '${detail.tglPemasangan} ${detail.jamPemasangan}'),
+            buildRow('Nomor JO Penarikan', detail.noSPKPenarikan),
+            buildRow('Tanggal Pemasangan JO',
+                '${detail.tglInputSpk} ${detail.jamInputSpk}'),
             buildRow('File Dokumen', 'Download', isLink: true),
             buildRow('File Dokumen Penarikan', 'Download', isLink: true),
           ],
@@ -213,7 +265,7 @@ class DetailPageState extends State<DetailPage> {
     );
   }
 
-  Widget buildAgentCard(DetailModel detail) {
+  Widget buildAgentCard(Pemasangan detail) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -233,7 +285,7 @@ class DetailPageState extends State<DetailPage> {
     );
   }
 
-  Widget buildDeviceCard(DetailModel detail) {
+  Widget buildDeviceCard(Pemasangan detail) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -252,7 +304,7 @@ class DetailPageState extends State<DetailPage> {
     );
   }
 
-  Widget buildInstallationStatusCard(DetailModel detail) {
+  Widget buildInstallationStatusCard(Pemasangan detail) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -268,26 +320,53 @@ class DetailPageState extends State<DetailPage> {
     );
   }
 
-  Widget buildDocumentationCard(DetailModel detail) {
+  Widget buildDocumentationCard(Pemasangan detail) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Dokumentasi',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            buildImageRow('Foto Pemasangan', detail.fotoPemasangan),
-            buildImageRow('Foto Perangkat & Agen', detail.fotoAgen),
-            buildImageRow('Foto Banner', detail.fotoBanner),
-            buildImageRow('Foto Tempat', detail.fotoTempat),
+            const Text(
+              'Dokumentasi',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16), // Spasi antara judul dan gambar
+            Wrap(
+              spacing: 8.0,
+              runSpacing: 15.0,
+              children: [
+                buildImageColumn(
+                    'Foto Pemasangan',
+                    'https://pola.inti.co.id/doc/pemasangan/' +
+                        detail.fotoPemasangan),
+                buildImageColumn(
+                    'Foto Perangkat & Agen',
+                    'https://pola.inti.co.id/doc/pemasangan/' +
+                        detail.fotoAgen),
+              ],
+            ),
+            Wrap(
+              spacing: 8.0, // Spasi horizontal antar gambar
+              runSpacing: 15.0, // Spasi vertikal antar baris gambar
+              children: [
+                buildImageColumn(
+                    'Foto Banner',
+                    'https://pola.inti.co.id/doc/pemasangan/' +
+                        detail.fotoBanner),
+                buildImageColumn(
+                    'Foto Tempat',
+                    'https://pola.inti.co.id/doc/pemasangan/' +
+                        detail.fotoTempat),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget buildTransactionCard(DetailModel detail) {
+  Widget buildTransactionCard(Pemasangan detail) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -296,9 +375,30 @@ class DetailPageState extends State<DetailPage> {
           children: [
             const Text('Transaksi',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            buildImageRow('Foto Transaksi Tunai', detail.fotoTransaksi1),
-            buildImageRow('Foto Transaksi Debit', detail.fotoTransaksi2),
-            buildImageRow('Foto Transaksi Antar Bank', detail.fotoTransaksi3),
+            Wrap(
+              spacing: 8.0, // Spasi horizontal antar gambar
+              runSpacing: 15.0, // Spasi vertikal antar baris gambar
+              children: [
+                buildImageColumn(
+                    'Foto Transaksi Tunai',
+                    'https://pola.inti.co.id/doc/pemasangan/' +
+                        detail.fotoTransaksi1),
+                buildImageColumn(
+                    'Foto Transaksi Debit',
+                    'https://pola.inti.co.id/doc/pemasangan/' +
+                        detail.fotoTransaksi2),
+              ],
+            ),
+            Wrap(
+              spacing: 8.0, // Spasi horizontal antar gambar
+              runSpacing: 15.0, // Spasi vertikal antar baris gambar
+              children: [
+                buildImageColumn(
+                    'Foto Transaksi Antar Bank',
+                    'https://pola.inti.co.id/doc/pemasangan/' +
+                        detail.fotoTransaksi3),
+              ],
+            ),
           ],
         ),
       ),
@@ -309,60 +409,69 @@ class DetailPageState extends State<DetailPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment:
+            CrossAxisAlignment.start, // Agar teks tidak menempel pada label
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.normal, // Set font weight to normal
+          Expanded(
+            flex: 2, // Label mengambil ruang yang diperlukan
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          isLink
-              ? GestureDetector(
-                  onTap: () {
-                    // Handle link tap, e.g., open a file
-                  },
-                  child: Text(
+          Expanded(
+            flex: 2, // Value akan mengisi sisa ruang yang tersedia
+            child: isLink
+                ? GestureDetector(
+                    onTap: () {
+                      // Handle link tap, e.g., open a file
+                    },
+                    child: Text(
+                      value,
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.normal,
+                        decoration: TextDecoration.underline,
+                      ),
+                      maxLines: 2, // Maksimum baris yang ditampilkan
+                      overflow: TextOverflow
+                          .ellipsis, // Teks yang melebihi batas akan menggunakan ellipsis
+                    ),
+                  )
+                : Text(
                     value,
                     style: const TextStyle(
-                      color: Colors.blue,
-                      fontWeight:
-                          FontWeight.normal, // Set font weight to normal
-                      decoration: TextDecoration.underline,
+                      fontWeight: FontWeight.normal,
                     ),
+                    maxLines: 2, // Maksimum baris yang ditampilkan
+                    overflow: TextOverflow
+                        .ellipsis, // Teks yang melebihi batas akan menggunakan ellipsis
                   ),
-                )
-              : Text(
-                  value,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.normal, // Set font weight to normal
-                  ),
-                ),
+          ),
         ],
       ),
     );
   }
 
-  Widget buildImageRow(String label, String imageUrl) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.normal, // Set font weight to normal
-            ),
-          ),
-          const SizedBox(width: 10),
-          Image.network(
-            imageUrl,
-            width: 100,
-            height: 100,
-            fit: BoxFit.cover,
-          ),
-        ],
-      ),
+  Widget buildImageColumn(String title, String imageUrl) {
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start, // Teks akan diratakan ke kiri
+      children: [
+        Text(
+          title,
+          style: TextStyle(fontWeight: FontWeight.normal),
+        ),
+        const SizedBox(height: 4), // Spasi antara teks dan gambar
+        Image.network(
+          imageUrl,
+          width: 150, // Tentukan lebar gambar (sesuaikan dengan kebutuhan)
+          height: 150, // Tentukan tinggi gambar (sesuaikan dengan kebutuhan)
+          fit: BoxFit.cover,
+        ),
+      ],
     );
   }
 }

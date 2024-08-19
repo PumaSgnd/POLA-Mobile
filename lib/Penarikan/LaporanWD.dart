@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 //Menu
 import '../Menu/MenuDrop.dart';
-import '../Penarikan/listwd/DetailWD.dart';
+import '../Penarikan/laporan/DetailWD.dart';
 import '../Penarikan/laporan/EditAgen.dart';
 import '../user/User.dart';
 
@@ -19,6 +19,7 @@ class LaporanWD extends StatefulWidget {
 }
 
 class DataPenarikan {
+  String? id;
   final String noSPKPenarikan;
   final String namaAgen;
   final String kota;
@@ -28,6 +29,7 @@ class DataPenarikan {
   final DateTime tanggalPenarikan;
 
   DataPenarikan({
+    this.id,
     required this.noSPKPenarikan,
     required this.namaAgen,
     required this.kota,
@@ -49,9 +51,11 @@ class LaporanWDPage extends State<LaporanWD> {
   String _searchQuery = '';
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
+
     try {
       final response = await http.get(Uri.parse(apiUrl));
+
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
         if (responseData['status'] == true) {
@@ -73,7 +77,7 @@ class LaporanWDPage extends State<LaporanWD> {
   }
 
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
     try {
       final response = await http.get(Uri.parse(baseUrl));
       if (response.statusCode == 200) {
@@ -114,19 +118,20 @@ class LaporanWDPage extends State<LaporanWD> {
   Future<void> fetchData() async {
     try {
       final response = await http.get(Uri.parse(
-          'http://10.20.20.195/fms/api/penarikan_api/get_all_laporan'));
+          'http://10.20.20.174/fms/api/penarikan_api/get_all_laporan'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
         final List<dynamic> data = jsonResponse['data'];
-        print('Data received: $data');
 
         setState(() {
           penarikanList.clear();
           for (var item in data) {
+            print(item['id']);
             try {
               penarikanList.add(
                 DataPenarikan(
+                  id: item['id'] ?? '',
                   noSPKPenarikan: item['no_spk_penarikan'] ?? '',
                   namaAgen: item['nama_agen'] ?? '',
                   kota: item['kota'] ?? '',
@@ -179,9 +184,12 @@ class LaporanWDPage extends State<LaporanWD> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: ListView(
@@ -250,8 +258,7 @@ class LaporanWDPage extends State<LaporanWD> {
                               return DropdownMenuItem<String>(
                                 value: value,
                                 child: Container(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 135.0),
+                                  constraints: BoxConstraints(maxWidth: 100.0),
                                   child: Text(
                                     value,
                                     maxLines: 2,
@@ -459,8 +466,8 @@ class PenarikanDataSource extends DataTableSource {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const DetailPage(
-                    detailId: '',
+                  builder: (context) => DetailPage(
+                    id: penarikan.id,
                     userData: null,
                   ),
                 ),
@@ -469,7 +476,8 @@ class PenarikanDataSource extends DataTableSource {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const EditAgen(
+                  builder: (context) => EditAgen(
+                    id: penarikan.id,
                     userData: null,
                   ),
                 ),

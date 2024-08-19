@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pola/Penarikan/ListWD.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
+import 'package:http/http.dart' as http;
 import '../../user/User.dart';
 
 class EditWD extends StatefulWidget {
@@ -50,6 +54,9 @@ class _EditWDState extends State<EditWD> {
   @override
   void initState() {
     super.initState();
+    if (widget.id != null) {
+      fetchPenarikanData(widget.id!);
+    }
     _noSpkController = TextEditingController(text: widget.noSpk);
     _namaAgenController = TextEditingController(text: widget.namaAgen);
     _alamatAgenController = TextEditingController(text: widget.alamatAgen);
@@ -90,16 +97,113 @@ class _EditWDState extends State<EditWD> {
     }
   }
 
-  void _save() {
-    if (_formKey.currentState!.validate()) {
-      // Handle save logic here
-      Navigator.of(context).pop();
+  // void _save() {
+  //   if (_formKey.currentState!.validate()) {
+  //     // Handle save logic here
+  //     Navigator.of(context as BuildContext).pop();
+  //   }
+  // }
+
+  Future<void> fetchPenarikanData(String id) async {
+    String url =
+        'http://10.20.20.174/fms/api/penarikan_api/show/$id'; // Replace with your actual API endpoint
+
+    print(id);
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      print(response.body);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          _noSpkController.text = data['data']['no_spk_penarikan'] ?? '';
+          _namaAgenController.text = data['data']['nama_agen'] ?? '';
+          _alamatAgenController.text = data['data']['alamat_agen'] ?? '';
+          _teleponAgenController.text = data['data']['telepon_agen'] ?? '';
+          _tidController.text = data['data']['tid'] ?? '';
+          _midController.text = data['data']['mid'] ?? '';
+        });
+      } else {
+        print('Failed to load data');
+      }
+    } catch (e) {
+      print('Error occurred while fetching data: $e');
     }
+  }
+
+  Future<void> prosesPenarikan(
+      BuildContext context, String id, XFile? imgPenarikan) async {
+    String url = 'http://10.20.20.174/fms/api/panarikan_api/proses_penarikan';
+    Map<String, dynamic> data = {};
+
+    if (imgPenarikan != null) {
+      // Path untuk menyimpan gambar
+      Directory appDir = await getApplicationDocumentsDirectory();
+      String path = '${appDir.path}/doc/penarikan';
+
+      // Buat directory jika belum ada
+      Directory(path).createSync(recursive: true);
+
+      // Konfigurasi dan upload gambar
+      String fileName =
+          "penarikan_${id}_${DateTime.now().millisecondsSinceEpoch}.jpg";
+      File file = await File(imgPenarikan.path).copy('$path/$fileName');
+      data['img_penarikan'] = fileName;
+
+      // Konfigurasi multipart request
+      var request = http.MultipartRequest('POST', Uri.parse(url));
+      request.fields['edit_id'] = id;
+      request.files
+          .add(await http.MultipartFile.fromPath('img_penarikan', file.path));
+
+      try {
+        var response = await request.send();
+        if (response.statusCode == 200) {
+          var responseData = await http.Response.fromStream(response);
+          var result = jsonDecode(responseData.body);
+          if (result['success']) {
+            _showAlertDialog(
+                context, 'Sukses', 'Proses Penarikan berhasil diperbarui');
+          } else {
+            _showAlertDialog(context, 'Gagal',
+                'Proses Penarikan gagal diperbarui: ${result['msg']}');
+          }
+        } else {
+          _showAlertDialog(
+              context, 'Error', 'Failed to update: ${response.statusCode}');
+        }
+      } catch (e) {
+        _showAlertDialog(context, 'Error', 'Error during request: $e');
+      }
+    } else {
+      _showAlertDialog(context, 'Gagal', 'Image not selected');
+    }
+  }
+
+  void _showAlertDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<bool> _onWillPop() async {
     Navigator.pushReplacement(
-      context,
+      context as BuildContext,
       MaterialPageRoute(
         builder: (context) => ListWD(userData: widget.userData),
       ),
@@ -421,7 +525,13 @@ class _EditWDState extends State<EditWD> {
                                 ),
                               ),
                               onPressed: () {
-                                Navigator.of(context).pop();
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ListWD(userData: widget.userData),
+                                  ),
+                                );
                               },
                               child: const Text(
                                 'Tutup',
@@ -444,9 +554,11 @@ class _EditWDState extends State<EditWD> {
                                   ),
                                 ),
                               ),
-                              onPressed: _save,
+                              onPressed: () {
+                                prosesPenarikan;
+                              },
                               child: const Text(
-                                'Edit',
+                                'Proses',
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600),

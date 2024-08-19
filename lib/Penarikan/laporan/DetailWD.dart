@@ -1,12 +1,15 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:pola/Penarikan/LaporanWD.dart';
+import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
-import 'package:pola/Pemasangan/ListAgen.dart';
+import 'dart:convert';
 import '../../user/User.dart';
 
+// Define a data model for the details
 class Pemasangan {
-  String? id;
+  final String? id;
   final String noSpk;
+  final String noSPKPenarikan;
   final String tglInputSpk;
   final String jamInputSpk;
   final String tglPemasangan;
@@ -28,10 +31,12 @@ class Pemasangan {
   final String fotoTransaksi1;
   final String fotoTransaksi2;
   final String fotoTransaksi3;
+  final String fotoPenarikan;
 
   Pemasangan({
     this.id,
     required this.noSpk,
+    required this.noSPKPenarikan,
     required this.tglInputSpk,
     required this.jamInputSpk,
     required this.tglPemasangan,
@@ -53,41 +58,51 @@ class Pemasangan {
     required this.fotoTransaksi1,
     required this.fotoTransaksi2,
     required this.fotoTransaksi3,
+    required this.fotoPenarikan,
   });
 
   factory Pemasangan.fromJson(Map<String, dynamic> json) {
     return Pemasangan(
       id: json['id'],
-      noSpk: json['no_spk'],
-      tglInputSpk: json['created_at'].split(' ')[0],
-      jamInputSpk: json['created_at'].split(' ')[1],
-      tglPemasangan: json['tgl_pemasangan'].split(' ')[0],
-      jamPemasangan: json['tgl_pemasangan'].split(' ')[1],
-      namaAgen: json['nama_agen'],
-      teleponAgen: json['telepon_agen'],
-      alamatAgen: json['alamat_agen'],
-      kota: json['kota'],
-      kanwil: json['kanwil'],
-      serialNumber: json['serial_number'],
-      tid: json['tid'],
-      mid: json['mid'],
-      fungsiPerangkat: json['fungsi_perangkat'],
-      statusPemasangan: json['status_pemasangan'],
-      fotoPemasangan: json['foto_pemasangan'],
-      fotoAgen: json['foto_agen'],
-      fotoBanner: json['foto_banner'],
-      fotoTempat: json['foto_tempat'],
-      fotoTransaksi1: json['foto_transaksi1'],
-      fotoTransaksi2: json['foto_transaksi2'],
-      fotoTransaksi3: json['foto_transaksi3'],
+      noSpk: json['no_spk'] ?? '',
+      tglInputSpk: json['tgl_penarikan'] != null
+          ? json['tgl_penarikan'].split(' ')[0]
+          : '',
+      jamInputSpk: json['tgl_penarikan'] != null
+          ? json['tgl_penarikan'].split(' ')[1]
+          : '',
+      noSPKPenarikan: json['no_spk_penarikan'],
+      tglPemasangan: json['tgl_pemasangan'] != null
+          ? json['tgl_pemasangan'].split(' ')[0]
+          : '',
+      jamPemasangan: json['tgl_pemasangan'] != null
+          ? json['tgl_pemasangan'].split(' ')[1]
+          : '',
+      namaAgen: json['nama_agen'] ?? '',
+      teleponAgen: json['telepon'] ?? '',
+      alamatAgen: json['alamat_agen'] ?? '',
+      kota: json['kota'] ?? '',
+      kanwil: json['kanwil'] ?? '',
+      serialNumber: json['serial_number'] ?? '',
+      tid: json['tid'] ?? '',
+      mid: json['mid'] ?? '',
+      fungsiPerangkat: json['fungsi_perangkat'] ?? '',
+      statusPemasangan: json['status_pemasangan'] ?? '',
+      fotoPemasangan: json['foto_pemasangan'] ?? '',
+      fotoAgen: json['foto_agen'] ?? '',
+      fotoBanner: json['foto_banner'] ?? '',
+      fotoTempat: json['foto_tempat'] ?? '',
+      fotoTransaksi1: json['foto_transaksi1'] ?? '',
+      fotoTransaksi2: json['foto_transaksi2'] ?? '',
+      fotoTransaksi3: json['foto_transaksi3'] ?? '',
+      fotoPenarikan: json['img_penarikan'] ?? '',
     );
   }
 }
 
 class DetailPage extends StatefulWidget {
-  final String id;
+  final String? id;
   final User? userData;
-
   const DetailPage({Key? key, required this.id, required this.userData})
       : super(key: key);
 
@@ -96,23 +111,31 @@ class DetailPage extends StatefulWidget {
 }
 
 class DetailPageState extends State<DetailPage> {
-  Future<Pemasangan> fetchPemasagan(String id) async {
+  Future<Pemasangan> fetchPenarikan(String id) async {
     final String apiUrl =
-        'http://10.20.20.174/fms/api/pemasangan_api/detail/$id';
+        'http://10.20.20.174/fms/api/penarikan_api/laporan_detail/$id';
+
+    print(id);
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
 
       if (response.statusCode == 200) {
         print('Response body: ${response.body}');
-        final data = json.decode(response.body)['data']['pemasangan'];
-        final pemasangan = Pemasangan.fromJson(data);
+        final responseData = json.decode(response.body);
 
-        // Sekarang kamu bisa menggunakan objek pemasangan sesuai kebutuhan
-        print(pemasangan.noSpk);
+        if (responseData['success']) {
+          final data = responseData['data']['spk'];
+          final pemasangan = Pemasangan.fromJson(data);
 
-        // Return model with the fetched data
-        return Pemasangan.fromJson(data);
+          // You can use the 'pemasangan' object as needed
+          print(pemasangan.noSpk);
+
+          // Return the Pemasangan model with the fetched data
+          return pemasangan;
+        } else {
+          throw Exception('Failed to load details: ${responseData['message']}');
+        }
       } else {
         throw Exception('Failed to load details: ${response.reasonPhrase}');
       }
@@ -125,7 +148,7 @@ class DetailPageState extends State<DetailPage> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => ListAgen(userData: widget.userData),
+        builder: (context) => LaporanWD(userData: widget.userData),
       ),
     );
     return false;
@@ -145,22 +168,20 @@ class DetailPageState extends State<DetailPage> {
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: FutureBuilder<Pemasangan>(
-          future: fetchPemasagan(widget.id), // Hanya menggunakan id
+          future: fetchPenarikan(widget.id!),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(child: Text("Error: ${snapshot.error}"));
-            } else if (!snapshot.hasData || snapshot.data == null) {
-              return Center(child: Text("No data available"));
-            } else {
+            } else if (snapshot.hasData) {
               Pemasangan detail = snapshot.data!;
               return Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: ListView(
                   children: [
                     const Text(
-                      'Detail Agen',
+                      'Detail Laporan Penarikan',
                       style: TextStyle(
                         fontSize: 16.0,
                         fontWeight: FontWeight.bold,
@@ -212,9 +233,12 @@ class DetailPageState extends State<DetailPage> {
                     buildInstallationStatusCard(detail),
                     buildDocumentationCard(detail),
                     buildTransactionCard(detail),
+                    buildWithDrawCard(detail),
                   ],
                 ),
               );
+            } else {
+              return Center(child: Text("No data available"));
             }
           },
         ),
@@ -232,11 +256,13 @@ class DetailPageState extends State<DetailPage> {
             const Text('Job Orders',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             buildRow('Nomor JO', detail.noSpk),
-            buildRow('Tanggal Input JO',
-                '${detail.tglInputSpk} ${detail.jamInputSpk}'),
             buildRow('Tanggal Pemasangan JO',
                 '${detail.tglPemasangan} ${detail.jamPemasangan}'),
+            buildRow('Nomor JO Penarikan', detail.noSPKPenarikan),
+            buildRow('Tanggal Pemasangan JO',
+                '${detail.tglInputSpk} ${detail.jamInputSpk}'),
             buildRow('File Dokumen', 'Download', isLink: true),
+            buildRow('File Dokumen Penarikan', 'Download', isLink: true),
           ],
         ),
       ),
@@ -314,28 +340,20 @@ class DetailPageState extends State<DetailPage> {
               spacing: 8.0,
               runSpacing: 15.0,
               children: [
-                buildImageColumn(
-                    'Foto Pemasangan',
-                    'https://pola.inti.co.id/doc/pemasangan/' +
-                        detail.fotoPemasangan),
-                buildImageColumn(
-                    'Foto Perangkat & Agen',
-                    'https://pola.inti.co.id/doc/pemasangan/' +
-                        detail.fotoAgen),
+                buildImageColumn('Foto Pemasangan',
+                    'https://pola.inti.co.id/doc/pemasangan/${detail.fotoPemasangan}'),
+                buildImageColumn('Foto Perangkat & Agen',
+                    'https://pola.inti.co.id/doc/pemasangan/${detail.fotoAgen}'),
               ],
             ),
             Wrap(
               spacing: 8.0, // Spasi horizontal antar gambar
               runSpacing: 15.0, // Spasi vertikal antar baris gambar
               children: [
-                buildImageColumn(
-                    'Foto Banner',
-                    'https://pola.inti.co.id/doc/pemasangan/' +
-                        detail.fotoBanner),
-                buildImageColumn(
-                    'Foto Tempat',
-                    'https://pola.inti.co.id/doc/pemasangan/' +
-                        detail.fotoTempat),
+                buildImageColumn('Foto Banner',
+                    'https://pola.inti.co.id/doc/pemasangan/${detail.fotoBanner}'),
+                buildImageColumn('Foto Tempat',
+                    'https://pola.inti.co.id/doc/pemasangan/${detail.fotoTempat}'),
               ],
             ),
           ],
@@ -357,26 +375,39 @@ class DetailPageState extends State<DetailPage> {
               spacing: 8.0, // Spasi horizontal antar gambar
               runSpacing: 15.0, // Spasi vertikal antar baris gambar
               children: [
-                buildImageColumn(
-                    'Foto Transaksi Tunai',
-                    'https://pola.inti.co.id/doc/pemasangan/' +
-                        detail.fotoTransaksi1),
-                buildImageColumn(
-                    'Foto Transaksi Debit',
-                    'https://pola.inti.co.id/doc/pemasangan/' +
-                        detail.fotoTransaksi2),
+                buildImageColumn('Foto Transaksi Tunai',
+                    'https://pola.inti.co.id/doc/pemasangan/${detail.fotoTransaksi1}'),
+                buildImageColumn('Foto Transaksi Debit',
+                    'https://pola.inti.co.id/doc/pemasangan/${detail.fotoTransaksi2}'),
               ],
             ),
             Wrap(
               spacing: 8.0, // Spasi horizontal antar gambar
               runSpacing: 15.0, // Spasi vertikal antar baris gambar
               children: [
-                buildImageColumn(
-                    'Foto Transaksi Antar Bank',
-                    'https://pola.inti.co.id/doc/pemasangan/' +
-                        detail.fotoTransaksi3),
+                buildImageColumn('Foto Transaksi Antar Bank',
+                    'https://pola.inti.co.id/doc/pemasangan/${detail.fotoTransaksi3}'),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildWithDrawCard(Pemasangan detail) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Penarikan',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            buildImage(
+                'Foto Penarikan',
+                '	http://pola.inti.co.id/doc/penarikan/${detail.fotoPenarikan}',
+                '1.0'),
           ],
         ),
       ),
@@ -430,6 +461,29 @@ class DetailPageState extends State<DetailPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget buildImage(String title, String imageUrl, String scale) {
+    // Convert the scale from String to double
+    double scaleValue = double.tryParse(scale) ?? 1.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start, // Align text to the left
+      children: [
+        Text(
+          title,
+          style: TextStyle(fontWeight: FontWeight.normal),
+        ),
+        const SizedBox(height: 4), // Space between text and image
+        Image.network(
+          imageUrl,
+          width: 150, // Set the width of the image (adjust as needed)
+          height: 150, // Set the height of the image (adjust as needed)
+          fit: BoxFit.cover,
+          scale: scaleValue, // Apply the scale value
+        ),
+      ],
     );
   }
 

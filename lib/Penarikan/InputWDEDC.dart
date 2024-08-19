@@ -81,6 +81,11 @@ class _InputWDEDCState extends State<InputWDEDC> {
 
       request.fields['no_spk_penarikan'] = nomorJoController.text ?? '';
       request.fields['id_spk'] = id_spk ?? '';
+      request.fields['nama_agen'] = namaAgenController.text ?? '';
+      request.fields['alamat_agen'] = alamatAgen ?? '';
+      request.fields['telepon_agen'] = teleponAgen ?? '';
+      request.fields['tid'] = tid ?? '';
+      request.fields['mid'] = mid ?? '';
 
       if (widget.userData != null) {
         request.fields['created_by'] = widget.userData!.username;
@@ -182,9 +187,12 @@ class _InputWDEDCState extends State<InputWDEDC> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: Padding(

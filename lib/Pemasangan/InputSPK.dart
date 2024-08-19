@@ -115,7 +115,7 @@ class _InputSPKState extends State<InputSPK> {
   }
 
   void sendHttpRequestWithBody() async {
-    final String baseUrl = "http://10.20.20.195/fms/api/spk_api/save";
+    final String baseUrl = "http://10.20.20.174/fms/api/spk_api/save";
 
     try {
       var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
@@ -177,7 +177,7 @@ class _InputSPKState extends State<InputSPK> {
   }
 
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.195/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
 
     try {
       final response = await http.get(Uri.parse(baseUrl));
@@ -203,7 +203,7 @@ class _InputSPKState extends State<InputSPK> {
   }
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.195/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -238,9 +238,12 @@ class _InputSPKState extends State<InputSPK> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: Padding(
@@ -252,7 +255,7 @@ class _InputSPKState extends State<InputSPK> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Input JO',
+                    'Input JO Pemasangan',
                     style: TextStyle(
                       fontSize: 20.0,
                       fontWeight: FontWeight.bold,

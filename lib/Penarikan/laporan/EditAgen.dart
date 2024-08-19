@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:pola/Penarikan/LaporanWD.dart';
 import '../../user/User.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:http/http.dart' as http;
 
 class EditAgen extends StatefulWidget {
   final String? id;
@@ -10,8 +14,6 @@ class EditAgen extends StatefulWidget {
   final String? teleponAgen;
   final String? tid;
   final String? mid;
-  final String? kota;
-  final String? idKanwil;
   final User? userData;
 
   const EditAgen({
@@ -23,8 +25,6 @@ class EditAgen extends StatefulWidget {
     this.teleponAgen,
     this.tid,
     this.mid,
-    this.kota,
-    this.idKanwil,
     required this.userData,
   }) : super(key: key);
 
@@ -40,20 +40,21 @@ class _EditAgenState extends State<EditAgen> {
   late TextEditingController _teleponAgenController;
   late TextEditingController _tidController;
   late TextEditingController _midController;
-  String? _selectedKota;
-  String? _selectedKanwil;
 
   @override
   void initState() {
     super.initState();
-    _noSpkController = TextEditingController(text: widget.noSpk);
-    _namaAgenController = TextEditingController(text: widget.namaAgen);
-    _alamatAgenController = TextEditingController(text: widget.alamatAgen);
-    _teleponAgenController = TextEditingController(text: widget.teleponAgen);
-    _tidController = TextEditingController(text: widget.tid);
-    _midController = TextEditingController(text: widget.mid);
-    _selectedKota = widget.kota;
-    _selectedKanwil = widget.idKanwil;
+    if (widget.id != null) {
+      _fetchLaporan(widget.id ?? '');
+    }
+    _noSpkController = TextEditingController(text: widget.noSpk ?? '');
+    _namaAgenController = TextEditingController(text: widget.namaAgen ?? '');
+    _alamatAgenController =
+        TextEditingController(text: widget.alamatAgen ?? '');
+    _teleponAgenController =
+        TextEditingController(text: widget.teleponAgen ?? '');
+    _tidController = TextEditingController(text: widget.tid ?? '');
+    _midController = TextEditingController(text: widget.mid ?? '');
   }
 
   @override
@@ -67,10 +68,105 @@ class _EditAgenState extends State<EditAgen> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _fetchLaporan(String id) async {
+    final url = Uri.parse('http://10.20.20.174/fms/api/penarikan_api/show/$id');
+    http.Response response = await http.get(url);
+
+    print(id);
+    print(response.body);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['status']) {
+        setState(() {
+          // Mengisi controller dengan data yang diterima
+          _noSpkController.text = data['data']['no_spk_penarikan'] ?? '';
+          _namaAgenController.text = data['data']['nama_agen'] ?? '';
+          _alamatAgenController.text = data['data']['alamat_agen'] ?? '';
+          _teleponAgenController.text = data['data']['telepon_agen'] ?? '';
+          _tidController.text = data['data']['tid'] ?? '';
+          _midController.text = data['data']['mid'] ?? '';
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to fetch data.')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to fetch data.')),
+      );
+    }
+  }
+
+  Future<void> _updatePenarikan() async {
     if (_formKey.currentState!.validate()) {
-      // Handle save logic here
-      Navigator.of(context).pop();
+      String url = 'http://10.20.20.174/fms/api/penarikan_api/update';
+      try {
+        final response = await http.post(
+          Uri.parse(url),
+          body: {
+            'edit_id': widget.id,
+            'edit_no_spk_penarikan': _noSpkController.text,
+          },
+        );
+        final responseData = jsonDecode(response.body);
+        if (response.statusCode == 200) {
+          final result = jsonDecode(response.body);
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: Text(result['success'] ? 'Success' : 'Error'),
+                content: Text(result['msg']),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('OK'),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              LaporanWD(userData: widget.userData),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        } else {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Error'),
+                content: const Text('Failed to update data.'),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('OK'),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              LaporanWD(userData: widget.userData),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        }
+      } catch (e) {
+        print('Error occurred while updating data: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
@@ -89,9 +185,12 @@ class _EditAgenState extends State<EditAgen> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: Padding(
@@ -103,7 +202,7 @@ class _EditAgenState extends State<EditAgen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Edit JO Penarika',
+                    'Edit JO Penarikan',
                     style: TextStyle(
                       fontSize: 16.0,
                       fontWeight: FontWeight.bold,
@@ -186,6 +285,7 @@ class _EditAgenState extends State<EditAgen> {
                             }
                             return null;
                           },
+                          enabled: false,
                         ),
                         const SizedBox(height: 15),
                         const Row(
@@ -216,6 +316,7 @@ class _EditAgenState extends State<EditAgen> {
                             }
                             return null;
                           },
+                          enabled: false,
                         ),
                         const SizedBox(height: 15),
                         const Row(
@@ -248,6 +349,7 @@ class _EditAgenState extends State<EditAgen> {
                             }
                             return null;
                           },
+                          enabled: false,
                         ),
                         const SizedBox(height: 15),
                         const Row(
@@ -277,6 +379,7 @@ class _EditAgenState extends State<EditAgen> {
                             }
                             return null;
                           },
+                          enabled: false,
                         ),
                         const SizedBox(height: 15),
                         const Row(
@@ -306,6 +409,7 @@ class _EditAgenState extends State<EditAgen> {
                             }
                             return null;
                           },
+                          enabled: false,
                         ),
                         const SizedBox(height: 20),
                         Row(
@@ -325,7 +429,13 @@ class _EditAgenState extends State<EditAgen> {
                                 ),
                               ),
                               onPressed: () {
-                                Navigator.of(context).pop();
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        LaporanWD(userData: widget.userData),
+                                  ),
+                                );
                               },
                               child: const Text(
                                 'Tutup',
@@ -348,7 +458,7 @@ class _EditAgenState extends State<EditAgen> {
                                   ),
                                 ),
                               ),
-                              onPressed: _save,
+                              onPressed: _updatePenarikan,
                               child: const Text(
                                 'Edit',
                                 style: TextStyle(
@@ -370,33 +480,4 @@ class _EditAgenState extends State<EditAgen> {
       ),
     );
   }
-}
-
-void showEditAgenDialog(BuildContext context,
-    {String? id,
-    String? noSpk,
-    String? namaAgen,
-    String? alamatAgen,
-    String? teleponAgen,
-    String? tid,
-    String? mid,
-    String? kota,
-    String? idKanwil}) {
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return EditAgen(
-        id: id,
-        noSpk: noSpk,
-        namaAgen: namaAgen,
-        alamatAgen: alamatAgen,
-        teleponAgen: teleponAgen,
-        tid: tid,
-        mid: mid,
-        kota: kota,
-        idKanwil: idKanwil,
-        userData: null,
-      );
-    },
-  );
 }
