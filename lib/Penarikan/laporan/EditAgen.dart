@@ -69,7 +69,7 @@ class _EditAgenState extends State<EditAgen> {
   }
 
   Future<void> _fetchLaporan(String id) async {
-    final url = Uri.parse('http://10.20.20.174/fms/api/penarikan_api/show/$id');
+    final url = Uri.parse('http://10.60.226.16/pola/api/penarikan_api/show/$id');
     http.Response response = await http.get(url);
 
     print(id);
@@ -101,7 +101,7 @@ class _EditAgenState extends State<EditAgen> {
 
   Future<void> _updatePenarikan() async {
     if (_formKey.currentState!.validate()) {
-      String url = 'http://10.20.20.174/fms/api/penarikan_api/update';
+      String url = 'http://192.168.50.69/pola/api/penarikan_api/update';
       try {
         final response = await http.post(
           Uri.parse(url),

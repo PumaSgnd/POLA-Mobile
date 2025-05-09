@@ -110,7 +110,7 @@ class DetailPage extends StatefulWidget {
 class DetailPageState extends State<DetailPage> {
   Future<Pemasangan> fetchPenarikan(String id) async {
     final String apiUrl =
-        'http://10.20.20.174/fms/api/penarikan_api/view_detail/$id';
+        'http://192.168.50.69/pola/api/penarikan_api/view_detail/$id';
 
     print(id);
 

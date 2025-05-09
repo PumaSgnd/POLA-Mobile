@@ -20,8 +20,9 @@ class CekPerangkat extends StatefulWidget {
 class _CekPerangkatState extends State<CekPerangkat> {
   String serialNumber = " ";
   String tid = " ";
+  String mid = " ";
   String? spk = " ";
-  String? kanwil = " ";
+  String? id_kanwil = " ";
   String? namaAgen;
   List<String> suggestions = [];
   List<Map<String, dynamic>> suggestionList = [];
@@ -41,8 +42,10 @@ class _CekPerangkatState extends State<CekPerangkat> {
   void initState() {
     super.initState();
     fetchCekPerangkat();
+    id_kanwil = '';
     alamatAgen = '';
     tid = '';
+    serialNumber = _serialNumberController.text;
     _namaAgenController.addListener(_onNamaAgenChanged);
   }
 
@@ -84,97 +87,88 @@ class _CekPerangkatState extends State<CekPerangkat> {
     return false;
   }
 
-  Future<void> save() async {
-    final checkSnUrl = Uri.parse(
-        'http://10.20.20.174/fms/api/pemasangan_api/check_serial_number');
-    final saveTestUrl =
-        Uri.parse('http://10.20.20.174/fms/api/pemasangan_api/save_test');
-    final saveSnUrl =
-        Uri.parse('http://10.20.20.174/fms/api/pemasangan_api/save/serial_number');
+  Future<void> save(BuildContext context) async {
+    final url =
+        Uri.parse('http://192.168.203.113/pola/api/pemasangan_api/save_test');
 
-    final serialNumber = _serialNumberController.text;
+    final Map<String, dynamic> body = {};
 
-    // Pengecekan Serial Number
-    final checkResponse = await http.post(
-      checkSnUrl,
-      body: json.encode({'serial_number': serialNumber}),
-      headers: {'Content-Type': 'application/json'},
-    );
+    for (int i = 0; i < testFungsiItems.length; i++) {
+      final item = testFungsiItems[i];
+      final itemId = item['id'].toString();
 
-    final checkResult = json.decode(checkResponse.body);
+      body['fungsi[$i]'] = {
+        'id': item['id'],
+        'item': item['item'],
+        'status': testFungsi[itemId] ?? '',
+      };
+    }
 
-    // Simpan Serial Number ke db spk_agen terlepas dari sudah terdaftar atau belum
-    final saveSnResponse = await http.post(
-      saveSnUrl,
+    print('serialNumber before POST: $serialNumber');
+    print('Controller Text: ${_serialNumberController.text}');
+
+    final response = await http.post(
+      url,
       body: json.encode({
         'id_spk': spk,
+        'fungsi_perangkat': fungsiPerangkat,
+        'catatan_test': catatanCekPerangkat,
         'serial_number': serialNumber,
-        'id_kanwil': kanwil,
+        'id_item_test': body,
+        'tid': tid,
+        'mid': mid,
+        // 'id_kanwil': id_kanwil,
       }),
-      headers: {'Content-Type': 'application/json'},
     );
 
-    if (saveSnResponse.statusCode == 200) {
-      final saveSnResult = json.decode(saveSnResponse.body);
+    print('Body: ${response.body}');
+    print('${response.statusCode}');
 
-      if (saveSnResult['success'] == true) {
-        print('Serial Number berhasil disimpan di spk_agen');
-
-        if (checkResult['is_registered'] == true) {
-          // Jika Serial Number sudah terdaftar, tampilkan pesan
-          print('Serial Number Sudah Terdaftar.');
-        } else {
-          // Lanjutkan untuk menyimpan data test setelah SN disimpan
-          final Map<String, dynamic> body = {};
-
-          for (int i = 0; i < testFungsiItems.length; i++) {
-            final item = testFungsiItems[i];
-            final itemId = item['id'].toString();
-
-            body['fungsi[$i]'] = {
-              'id': item['id'],
-              'item': item['item'],
-              'status': testFungsi[itemId] ?? '',
-            };
-          }
-
-          final response = await http.post(
-            saveTestUrl,
-            body: json.encode({
-              'id_spk': spk,
-              'fungsi_perangkat': fungsiPerangkat,
-              'catatan_test': catatanCekPerangkat,
-              'serial_number': serialNumber,
-              'id_item_test': body,
-              'kawil': kanwil,
-            }),
-            headers: {'Content-Type': 'application/json'},
-          );
-
-          if (response.statusCode == 200) {
-            final saveResult = json.decode(response.body);
-            if (saveResult['success'] == true) {
-              print('Hasil cek perangkat berhasil disimpan');
-            } else {
-              print(
-                  'Hasil cek perangkat gagal disimpan: ${saveResult['err_msg']}');
-            }
-          } else {
-            print('Error: ${response.statusCode}');
-          }
-        }
+    if (response.statusCode == 200) {
+      final saveResult = json.decode(response.body);
+      if (saveResult['success'] == true) {
+        print('Cek Perangkat berhasil disimpan');
+        showAlertDialog(context, 'Cek Perangkat berhasil disimpan');
       } else {
-        print(
-            'Gagal menyimpan Serial Number di spk_agen: ${saveSnResult['err_msg']}');
+        print('Cek Perangkat gagal disimpan: ${saveResult['err_msg']}');
+        showAlertDialog(
+            context, 'Cek Perangkat gagal disimpan: ${saveResult['err_msg']}');
       }
     } else {
-      print('Error: ${saveSnResponse.statusCode}');
+      print('Error: ${response.statusCode}');
+      showAlertDialog(context, 'Error: ${response.statusCode}');
     }
+  }
+
+  void showAlertDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Success'),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        CekPerangkat(userData: widget.userData),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> fetchAgenSuggestions(String keyword) async {
     final Uri uri = Uri.parse(
-      'http://10.20.20.174/fms/api/pemasangan_api/find_by_agen?nama_agen=$keyword',
+      'http://192.168.203.113/pola/api/pemasangan_api/find_by_agen?nama_agen=$keyword',
     );
 
     try {
@@ -199,14 +193,13 @@ class _CekPerangkatState extends State<CekPerangkat> {
                     suggestion['value'].toString() == selectedSuggestion,
                 orElse: () => <String, dynamic>{},
               );
-
+              print(suggestionMap);
               if (suggestionMap.isNotEmpty) {
                 alamatAgen = suggestionMap['alamat'] ?? '';
                 tid = suggestionMap['tid'] ?? '';
+                mid = suggestionMap['mid'] ?? '';
                 spk = suggestionMap['spk'] ?? '';
-                kanwil = suggestionMap['kanwil'] ?? '';
-
-                print(spk);
+                id_kanwil = suggestionMap['id_kanwil'] ?? '';
               }
             }
           });
@@ -221,8 +214,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
 
   Future<void> fetchCekPerangkat() async {
     final String baseUrl =
-        "http://10.20.20.174/fms/api/pemasangan_api/cek_perangkat";
-
+        "http://192.168.203.113/pola/api/pemasangan_api/cek_perangkat";
     try {
       final response = await http.get(Uri.parse(baseUrl));
 
@@ -264,9 +256,12 @@ class _CekPerangkatState extends State<CekPerangkat> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: SingleChildScrollView(
@@ -362,6 +357,9 @@ class _CekPerangkatState extends State<CekPerangkat> {
                                       alamatAgen =
                                           suggestionMap['alamat'] ?? '';
                                       tid = suggestionMap['tid'] ?? '';
+                                      mid = suggestionMap['mid'] ?? '';
+                                      id_kanwil =
+                                          suggestionMap['id_kanwil'] ?? '';
                                       isBoxVisible = false;
                                     });
                                   } else {
@@ -668,7 +666,7 @@ class _CekPerangkatState extends State<CekPerangkat> {
                               ),
                             ),
                             onPressed: () {
-                              save();
+                              save(context);
                             },
                             child: const Text(
                               'Simpan',

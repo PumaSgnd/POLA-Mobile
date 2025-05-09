@@ -70,7 +70,7 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
     try {
       // Fetch data from API
       final response = await http
-          .get(Uri.parse('http://10.20.20.174/fms/api/spk_api/get_all'));
+          .get(Uri.parse('http://192.168.50.69/pola/api/spk_api/get_all'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
@@ -153,7 +153,7 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
   }
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://192.168.50.69/pola/api/kanwil_api/get_all";
     try {
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
@@ -177,7 +177,7 @@ class _LaporanPemasanganState extends State<LaporanPemasangan> {
   }
 
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://192.168.50.69/pola/api/kota_api/kota_get_all";
     try {
       final response = await http.get(Uri.parse(baseUrl));
       if (response.statusCode == 200) {

@@ -77,7 +77,7 @@ class _EditAgenState extends State<EditAgen> {
   }
 
   Future<void> _fetchAgenData(String id) async {
-    final url = Uri.parse('http://10.20.20.174/fms/api/spk_api/show/$id');
+    final url = Uri.parse('http://192.168.50.69/pola/api/spk_api/show/$id');
     http.Response response = await http.get(url);
 
     print(id);
@@ -110,7 +110,7 @@ class _EditAgenState extends State<EditAgen> {
   }
 
   Future<void> _updateAgen() async {
-    final url = Uri.parse('http://10.20.20.174/fms/api/spk_api/update');
+    final url = Uri.parse('http://192.168.50.69/pola/api/spk_api/update');
     final response = await http.post(
       url,
       body: {
@@ -179,7 +179,7 @@ class _EditAgenState extends State<EditAgen> {
   }
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://192.168.50.69/pola/api/kanwil_api/get_all";
     try {
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
@@ -203,7 +203,7 @@ class _EditAgenState extends State<EditAgen> {
   }
 
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://192.168.50.69/pola/api/kota_api/kota_get_all";
     try {
       final response = await http.get(Uri.parse(baseUrl));
       if (response.statusCode == 200) {

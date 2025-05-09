@@ -107,7 +107,7 @@ class _LoginState extends State<Login> {
                       hintText: "Username",
                       hintStyle: TextStyle(
                         height:
-                            4, // Adjust this value to align the text properly
+                            2.7, // Adjust this value to align the text properly
                       ),
                       prefixIcon: Icon(Icons.person),
                       border: InputBorder.none, // Remove default border
@@ -135,7 +135,7 @@ class _LoginState extends State<Login> {
                       hintText: "Password",
                       hintStyle: const TextStyle(
                         height:
-                            4, // Adjust this value to align the text properly
+                            2.7, // Adjust this value to align the text properly
                       ),
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
                       suffixIcon: IconButton(

@@ -114,8 +114,8 @@ class _InputSPKState extends State<InputSPK> {
     return null;
   }
 
-  void sendHttpRequestWithBody() async {
-    final String baseUrl = "http://10.20.20.174/fms/api/spk_api/save";
+  void sendHttpRequestWithBody(BuildContext context) async {
+    final String baseUrl = "http://192.168.203.113/pola/api/spk_api/save";
 
     try {
       var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
@@ -125,26 +125,23 @@ class _InputSPKState extends State<InputSPK> {
       request.fields['alamat_agen'] = alamatAgenController.text;
       request.fields['telepon_agen'] = teleponAgenController.text;
       request.fields['kota'] = selectedKota!;
+
       if (selectedKanwil != null && selectedKanwil.contains(':')) {
         final parts = selectedKanwil.split(':');
         final idKanwil = parts[0];
         request.fields['id_kanwil'] = idKanwil;
       }
+
       request.fields['tid'] = tidController.text;
       request.fields['mid'] = midController.text;
       request.fields['tanggal'] =
           DateFormat("yyyy-MM-dd HH:mm:ss").format(selectedDate);
       request.fields['created_by'] = widget.userData!.username;
 
-      print(request.fields['created_by']);
-      // print('Username: ${widget.userData!.username}');
-
-      print('namaaaaaaaa' + selectedFile);
       if (selectedFile.isNotEmpty) {
         var file = File(selectedFile);
         var fileName = path.basename(file.path);
 
-        print('nama file' + fileName);
         request.files.add(
           http.MultipartFile(
             'dok_spk',
@@ -158,26 +155,52 @@ class _InputSPKState extends State<InputSPK> {
       var response = await request.send();
       final responseString = await response.stream.bytesToString();
 
-      print('Response body: $responseString');
-
       if (response.statusCode == 200) {
         var responseData = json.decode(responseString);
 
         if (responseData['success'] == true) {
-          print('SPK berhasil disimpan');
+          showAlertDialog(context, 'Success', 'JO berhasil disimpan');
         } else {
-          print('SPK gagal disimpan: ${responseData['err_msg']}');
+          showAlertDialog(context, 'Failure',
+              'JO gagal disimpan: ${responseData['err_msg']}');
         }
       } else {
-        print('Request failed with status: ${response.statusCode}');
+        showAlertDialog(context, 'Error',
+            'Request failed with status: ${response.statusCode}');
       }
     } catch (error) {
-      print('An error occurred: $error');
+      showAlertDialog(context, 'Error', 'An error occurred: $error');
     }
   }
 
+  void showAlertDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        InputSPK(userData: widget.userData),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://192.168.203.113/pola/api/kota_api/kota_get_all";
 
     try {
       final response = await http.get(Uri.parse(baseUrl));
@@ -203,7 +226,7 @@ class _InputSPKState extends State<InputSPK> {
   }
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://192.168.203.113/pola/api/kanwil_api/get_all";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -715,7 +738,7 @@ class _InputSPKState extends State<InputSPK> {
                           children: [
                             ElevatedButton(
                               onPressed: () {
-                                sendHttpRequestWithBody();
+                                sendHttpRequestWithBody(context);
                                 if (_formKey.currentState!.validate() &&
                                     _fileName != null &&
                                     _fileName!.isNotEmpty) {

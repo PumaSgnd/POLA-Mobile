@@ -51,7 +51,7 @@ class LaporanWDPage extends State<LaporanWD> {
   String _searchQuery = '';
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://192.168.50.69/pola/api/kanwil_api/get_all";
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -77,7 +77,7 @@ class LaporanWDPage extends State<LaporanWD> {
   }
 
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://192.168.50.69/pola/api/kota_api/kota_get_all";
     try {
       final response = await http.get(Uri.parse(baseUrl));
       if (response.statusCode == 200) {
@@ -118,7 +118,7 @@ class LaporanWDPage extends State<LaporanWD> {
   Future<void> fetchData() async {
     try {
       final response = await http.get(Uri.parse(
-          'http://10.20.20.174/fms/api/penarikan_api/get_all_laporan'));
+          'http://192.168.50.69/pola/api/penarikan_api/get_all_laporan'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
@@ -279,32 +279,7 @@ class LaporanWDPage extends State<LaporanWD> {
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 15),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
-                        labelText: 'Status (Semua)',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'status1',
-                          child: Text('Status 1'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'status2',
-                          child: Text('Status 2'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          selectedStatus = value;
-                        });
-                      },
-                    ),
-                  ),
+                  ),                  
                   const SizedBox(height: 15),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4.0),

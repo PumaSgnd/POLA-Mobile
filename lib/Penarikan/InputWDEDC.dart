@@ -32,6 +32,8 @@ class _InputWDEDCState extends State<InputWDEDC> {
   String? alamatAgen = " ";
   String? teleponAgen = " ";
   String? namaAgen;
+  String? id;
+  String? kanwil;
   List<String> suggestions = [];
   List<Map<String, dynamic>> suggestionList = [];
   bool isBoxVisible = false;
@@ -73,8 +75,8 @@ class _InputWDEDCState extends State<InputWDEDC> {
     super.dispose();
   }
 
-  void sendHttpRequestWithBody() async {
-    final String baseUrl = "http://10.20.20.195/fms/api/panarikan_api/simpan";
+  void sendHttpRequestWithBody(BuildContext context) async {
+    final String baseUrl = "http://192.168.50.69/pola/api/penarikan_api/simpan";
 
     try {
       var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
@@ -91,7 +93,7 @@ class _InputWDEDCState extends State<InputWDEDC> {
         request.fields['created_by'] = widget.userData!.username;
       } else {
         // Handle the case when userData is null
-        print('User data is null');
+        showAlertDialog(context, 'Error', 'User data is null');
         return;
       }
 
@@ -110,26 +112,52 @@ class _InputWDEDCState extends State<InputWDEDC> {
 
       var response = await request.send();
       final responseString = await response.stream.bytesToString();
-      print('Response body: $responseString');
 
       if (response.statusCode == 200) {
         var responseData = json.decode(responseString);
         if (responseData['success'] == true) {
-          print('JO Penarikan berhasil disimpan');
+          showAlertDialog(context, 'Success', 'JO Penarikan berhasil disimpan');
         } else {
-          print('JO Penarikan gagal disimpan: ${responseData['err_msg']}');
+          showAlertDialog(context, 'Failure',
+              'JO Penarikan gagal disimpan: ${responseData['err_msg']}');
         }
       } else {
-        print('Request failed with status: ${response.statusCode}');
+        showAlertDialog(context, 'Error',
+            'Request failed with status: ${response.statusCode}');
       }
     } catch (error) {
-      print('An error occurred: $error');
+      showAlertDialog(context, 'Error', 'An error occurred: $error');
     }
+  }
+
+  void showAlertDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => InputWDEDC(userData: widget.userData),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> fetchAgenSuggestions(String keyword) async {
     final Uri uri = Uri.parse(
-      'http://10.20.20.195/fms/api/penarikan_api/find_by_agen?nama_agen=$keyword',
+      'http://192.168.50.69/pola/api/penarikan_api/find_by_agen?nama_agen=$keyword',
     );
 
     try {
@@ -142,6 +170,7 @@ class _InputWDEDCState extends State<InputWDEDC> {
           suggestionList =
               List<Map<String, dynamic>>.from(responseData['suggestions']);
 
+          print(id);
           setState(() {
             suggestions = suggestionList
                 .map((suggestion) => suggestion['value'].toString())
@@ -160,7 +189,11 @@ class _InputWDEDCState extends State<InputWDEDC> {
                 teleponAgen = suggestionMap['telepon_agen'] ?? '';
                 tid = suggestionMap['tid'] ?? '';
                 mid = suggestionMap['mid'] ?? '';
+                id = suggestionMap['id_spk'] ?? '';
+                id_spk = suggestionMap['no_spk'] ?? '';
+                kanwil = suggestionMap['id_kanwil'] ?? '';
               }
+              print(suggestionMap);
             }
           });
         }
@@ -538,7 +571,7 @@ class _InputWDEDCState extends State<InputWDEDC> {
                         children: [
                           ElevatedButton(
                             onPressed: () {
-                              sendHttpRequestWithBody();
+                              sendHttpRequestWithBody(context);
                               if (_formKey.currentState != null &&
                                   _formKey.currentState!.validate() &&
                                   _fileName != null &&

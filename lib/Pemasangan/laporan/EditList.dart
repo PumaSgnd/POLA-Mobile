@@ -94,7 +94,7 @@ class _EditListState extends State<EditList> {
 
   Future<void> fetchPemasanganById(String id) async {
     final url =
-        Uri.parse('http://10.20.20.174/fms/api/pemasangan_api/show/$id');
+        Uri.parse('http://192.168.50.69/pola/api/pemasangan_api/show/$id');
     final response = await http.get(url);
 
     print(response.body);
@@ -141,7 +141,7 @@ class _EditListState extends State<EditList> {
       //   },
       // );
       final response = await http.post(
-        Uri.parse('http://10.20.20.174/fms/api/pemasangan_api/update'),
+        Uri.parse('http://192.168.50.69/pola/api/pemasangan_api/update'),
         body: {
           'id': widget.id ?? '',
           'serial_number_lama': widget.serialNumber ?? '',
@@ -222,7 +222,7 @@ class _EditListState extends State<EditList> {
   }
 
   Future<void> fetchKanwilList() async {
-    final String apiUrl = "http://10.20.20.174/fms/api/kanwil_api/get_all";
+    final String apiUrl = "http://192.168.50.69/pola/api/kanwil_api/get_all";
     try {
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
@@ -246,7 +246,7 @@ class _EditListState extends State<EditList> {
   }
 
   Future<void> fetchKotaList() async {
-    final String baseUrl = "http://10.20.20.174/fms/api/kota_api/kota_get_all";
+    final String baseUrl = "http://192.168.50.69/pola/api/kota_api/kota_get_all";
     try {
       final response = await http.get(Uri.parse(baseUrl));
       if (response.statusCode == 200) {
@@ -284,9 +284,12 @@ class _EditListState extends State<EditList> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: Padding(

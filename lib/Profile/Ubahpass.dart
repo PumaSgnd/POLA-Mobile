@@ -48,7 +48,7 @@ class _UpdatePasswordScreenState extends State<UpdatePassword> {
     // );
 
     final url =
-        Uri.parse('http://10.20.20.174/fms/api/user_api/update_password_user');
+        Uri.parse('http://192.168.50.69/pola/api/user_api/update_password_user');
     final response = await http.post(
       url,
       body: {
@@ -105,9 +105,12 @@ class _UpdatePasswordScreenState extends State<UpdatePassword> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: Padding(

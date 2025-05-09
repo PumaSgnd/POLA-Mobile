@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:location/location.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -31,13 +32,14 @@ class _PemasanganState extends State<Pemasangan> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _namaAgenController = TextEditingController();
   // final TextEditingController _teleponAgenController = TextEditingController();
+  TextEditingController _spkController = TextEditingController();
   List<Map<String, dynamic>> suggestionList = [];
-  String? spk = " ";
-  String? kanwil = " ";
+  String? id_spk = "";
+  String? kanwil = "";
   String tid = '';
   String serialNumber = '';
   String? teleponAgen = '';
-  String? alamatAgen = " ";
+  String? alamatAgen = "";
   String _latitude = '';
   String _longitude = '';
   List<String> suggestions = [];
@@ -64,6 +66,7 @@ class _PemasanganState extends State<Pemasangan> {
       zoom: 15,
     );
     _namaAgenController.addListener(_onNamaAgenChanged);
+    id_spk = '';
     alamatAgen = '';
     tid = '';
     serialNumber = '';
@@ -84,9 +87,17 @@ class _PemasanganState extends State<Pemasangan> {
     });
   }
 
+  String truncateFileName(String fileName, {int maxLength = 15}) {
+    if (fileName.isEmpty || fileName.length <= maxLength) {
+      return fileName;
+    } else {
+      return '${fileName.substring(0, maxLength)}...';
+    }
+  }
+
   Future<void> _fetchAgentData(String keyword) async {
     final Uri uri = Uri.parse(
-      'http://10.20.20.174/fms/api/pemasangan_api/find_by_agen_pemasangan?nama_agen=$keyword',
+      'http://192.168.50.69/pola/api/pemasangan_api/find_by_agen_pemasangan?nama_agen=$keyword',
     );
 
     try {
@@ -115,11 +126,11 @@ class _PemasanganState extends State<Pemasangan> {
               if (suggestionMap.isNotEmpty) {
                 alamatAgen = suggestionMap['alamat'] ?? '';
                 tid = suggestionMap['tid'] ?? '';
-                spk = suggestionMap['id_spk'] ?? '';
+                id_spk = suggestionMap['spk'];
+                _spkController.text = id_spk!;
                 kanwil = suggestionMap['id_kanwil'] ?? '';
                 serialNumber = suggestionMap['serial_number'] ?? '';
                 teleponAgen = suggestionMap['telepon_agen'] ?? '';
-                // print(spk);
               }
             }
           });
@@ -266,107 +277,97 @@ class _PemasanganState extends State<Pemasangan> {
     });
   }
 
-  Future<void> _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
+  Future<void> submitForm(BuildContext context) async {
+    // if (_formKey.currentState!.validate()) {
 
-      try {
-        // Create the multipart request
-        final uri =
-            Uri.parse("http://10.20.20.174/fms/api/pemasangan_api/save");
-        var request = http.MultipartRequest("POST", uri);
+    _formKey.currentState!.save();
+    try {
+      final uri =
+          Uri.parse("http://192.168.50.69/pola/api/pemasangan_api/save");
+      var request = http.MultipartRequest("POST", uri);
 
-        // Add form fields
-        request.fields['id_spk'] = spk ?? '';
-        request.fields['nama_agen'] = _namaAgenController.text;
-        request.fields['serial_number'] = serialNumber ?? '';
-        request.fields['tid'] = tid ?? '';
-        request.fields['alamat_agen'] = alamatAgen ?? '';
-        request.fields['telepon_agen'] = teleponAgen ?? '';
-        request.fields['longitude'] = _longitude;
-        request.fields['latitude'] = _latitude;
-        request.fields['status'] = _selectedStatus ?? '';
-        request.fields['catatan'] = catatan ?? '';
+      // Add form fields
+      request.fields['id_spk'] = id_spk ?? '';
+      request.fields['nama_agen'] = _namaAgenController.text;
+      request.fields['serial_number'] = serialNumber ?? '';
+      request.fields['tid'] = tid ?? '';
+      request.fields['alamat_agen'] = alamatAgen ?? '';
+      request.fields['telepon_agen'] = teleponAgen ?? '';
+      request.fields['longitude'] = _longitude;
+      request.fields['latitude'] = _latitude;
+      request.fields['catatan'] = catatan ?? '';
+      request.fields['status'] = _selectedStatus ?? '';
 
-        // Add the images
-        if (_pemasanganFoto != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'foto_pemasangan',
-            _pemasanganFoto!.path,
-            filename: basename(_pemasanganFoto!.path),
-          ));
-        }
-        if (_agenPerangkatFoto != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'foto_agen',
-            _agenPerangkatFoto!.path,
-            filename: basename(_agenPerangkatFoto!.path),
-          ));
-        }
-        if (_tempatFoto != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'foto_tempat',
-            _tempatFoto!.path,
-            filename: basename(_tempatFoto!.path),
-          ));
-        }
-        if (_bannerFoto != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'foto_banner',
-            _bannerFoto!.path,
-            filename: basename(_bannerFoto!.path),
-          ));
-        }
-        if (_fotoTransaksiTunai != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'foto_transaksi1',
-            _fotoTransaksiTunai!.path,
-            filename: basename(_fotoTransaksiTunai!.path),
-          ));
-        }
-        if (_fotoTransaksiDebit != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'foto_transaksi2',
-            _fotoTransaksiDebit!.path,
-            filename: basename(_fotoTransaksiDebit!.path),
-          ));
-        }
-        if (_fotoTransaksiAntarBank != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'foto_transaksi3',
-            _fotoTransaksiAntarBank!.path,
-            filename: basename(_fotoTransaksiAntarBank!.path),
-          ));
-        }
+      // Add the images
+      await _addImageToRequest(request, 'foto_pemasangan', _pemasanganFoto);
+      await _addImageToRequest(request, 'foto_agen', _agenPerangkatFoto);
+      await _addImageToRequest(request, 'foto_tempat', _tempatFoto);
+      await _addImageToRequest(request, 'foto_banner', _bannerFoto);
+      await _addImageToRequest(request, 'foto_transaksi1', _fotoTransaksiTunai);
+      await _addImageToRequest(request, 'foto_transaksi2', _fotoTransaksiDebit);
+      await _addImageToRequest(
+          request, 'foto_transaksi3', _fotoTransaksiAntarBank);
 
-        print(request.fields);
+      // Send the request
+      var response = await request.send();
+      final responseString = await response.stream.bytesToString();
 
-        // Send the request
-        var response = await request.send();
+      if (response.statusCode == 200) {
+        var responseData = json.decode(responseString);
 
-        if (response.statusCode == 200) {
-          final respStr = await response.stream.bytesToString();
-          var jsonResponse = json.decode(respStr);
-
-          if (jsonResponse['success']) {
-            // Handle success, show success message
-            print("Data saved successfully!");
-          } else {
-            // Handle error, show error message
-            print("Failed to save data: ${jsonResponse['err_msg']}");
-          }
+        if (responseData['success'] == true) {
+          showAlertDialog(
+              context, 'Success', 'Data Pemasangan berhasil disimpan');
         } else {
-          // Print the response body for debugging purposes
-          final respStr = await response.stream.bytesToString();
-
-          print("Request failed with status: ${response.statusCode}");
-          print("Response body: $respStr");
+          showAlertDialog(context, 'Failure',
+              'Data Pemasangan gagal disimpan: ${responseData['err_msg']}');
         }
-      } catch (error) {
-        // Tangani error apapun yang terjadi selama eksekusi
-        print("An error occurred: $error");
+      } else {
+        showAlertDialog(context, 'Error',
+            'Request failed with status: ${response.statusCode}');
       }
+    } catch (error) {
+      showAlertDialog(context, 'Error', 'An error occurred: $error');
     }
+    // } else {
+    //   print('Form validation failed.');
+    // }
+  }
+
+  Future<void> _addImageToRequest(
+      http.MultipartRequest request, String fieldName, File? image) async {
+    if (image != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        fieldName,
+        image.path,
+        filename: basename(image.path),
+      ));
+    }
+  }
+
+  void showAlertDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context as BuildContext,
+                  MaterialPageRoute(
+                    builder: (context) => Pemasangan(userData: widget.userData),
+                  ),
+                );
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<bool> _onWillPop() async {
@@ -384,9 +385,12 @@ class _PemasanganState extends State<Pemasangan> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: SingleChildScrollView(
@@ -476,11 +480,11 @@ class _PemasanganState extends State<Pemasangan> {
 
                                     if (suggestionMap.isNotEmpty) {
                                       setState(() {
-                                        print(suggestionMap);
                                         selectedNamaAgen = selectedSuggestion;
                                         _namaAgenController.text =
                                             selectedSuggestion;
-                                        spk = suggestionMap['id_spk'] ?? '';
+                                        id_spk = suggestionMap['spk'];
+                                        _spkController.text = id_spk!;
                                         serialNumber =
                                             suggestionMap['serial_number'] ??
                                                 '';
@@ -503,7 +507,7 @@ class _PemasanganState extends State<Pemasangan> {
                         Offstage(
                           offstage: true, // Hide this widget from the UI
                           child: TextFormField(
-                            controller: TextEditingController(text: spk),
+                            controller: _spkController,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Field ini wajib diisi';
@@ -1157,9 +1161,9 @@ class _PemasanganState extends State<Pemasangan> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.start,
-                              children: [
+                              children: const [
                                 Text('Status'),
                                 SizedBox(width: 5),
                                 Text(
@@ -1263,7 +1267,9 @@ class _PemasanganState extends State<Pemasangan> {
                                   ),
                                 ),
                               ),
-                              onPressed: _submitForm,
+                              onPressed: () {
+                                submitForm(context);
+                              },
                               child: const Text('Simpan',
                                   style: TextStyle(color: Colors.white)),
                             ),
@@ -1279,14 +1285,6 @@ class _PemasanganState extends State<Pemasangan> {
         ),
       ),
     );
-  }
-
-  String truncateFileName(String fileName, {int maxLength = 15}) {
-    if (fileName.length <= maxLength) {
-      return fileName;
-    } else {
-      return '${fileName.substring(0, maxLength)}...';
-    }
   }
 
   String getAlamatAgenFromDatabase(String? namaAgen) {

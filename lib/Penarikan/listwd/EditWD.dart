@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pola/Penarikan/ListWD.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
 import '../../user/User.dart';
@@ -41,6 +42,7 @@ class EditWD extends StatefulWidget {
 
 class _EditWDState extends State<EditWD> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  String? _id = '';
   late TextEditingController _noSpkController;
   late TextEditingController _namaAgenController;
   late TextEditingController _alamatAgenController;
@@ -49,7 +51,9 @@ class _EditWDState extends State<EditWD> {
   late TextEditingController _midController;
   String? _selectedKota;
   String? _selectedKanwil;
-  File? _penarikanFoto;
+  // File? _penarikanFoto;
+  // String? id = '';
+  File? imgPenarikan;
 
   @override
   void initState() {
@@ -57,6 +61,7 @@ class _EditWDState extends State<EditWD> {
     if (widget.id != null) {
       fetchPenarikanData(widget.id!);
     }
+    _id = widget.id;
     _noSpkController = TextEditingController(text: widget.noSpk);
     _namaAgenController = TextEditingController(text: widget.namaAgen);
     _alamatAgenController = TextEditingController(text: widget.alamatAgen);
@@ -84,7 +89,7 @@ class _EditWDState extends State<EditWD> {
 
     setState(() {
       if (pickedFile != null) {
-        _penarikanFoto = File(pickedFile.path);
+        imgPenarikan = File(pickedFile.path);
       }
     });
   }
@@ -97,26 +102,31 @@ class _EditWDState extends State<EditWD> {
     }
   }
 
-  // void _save() {
-  //   if (_formKey.currentState!.validate()) {
-  //     // Handle save logic here
-  //     Navigator.of(context as BuildContext).pop();
-  //   }
-  // }
+  Future<void> _pickFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+    );
+
+    if (result != null) {
+      setState(() {
+        imgPenarikan = File(result.files.single.path!);
+      });
+    } else {
+      // User canceled the picker
+    }
+  }
 
   Future<void> fetchPenarikanData(String id) async {
-    String url =
-        'http://10.20.20.174/fms/api/penarikan_api/show/$id'; // Replace with your actual API endpoint
-
-    print(id);
+    String url = 'http://192.168.50.69/pola/api/penarikan_api/show/$id';
 
     try {
       final response = await http.get(Uri.parse(url));
-      print(response.body);
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
         setState(() {
+          _id = data['data']['id'] ?? '';
           _noSpkController.text = data['data']['no_spk_penarikan'] ?? '';
           _namaAgenController.text = data['data']['nama_agen'] ?? '';
           _alamatAgenController.text = data['data']['alamat_agen'] ?? '';
@@ -133,51 +143,57 @@ class _EditWDState extends State<EditWD> {
   }
 
   Future<void> prosesPenarikan(
-      BuildContext context, String id, XFile? imgPenarikan) async {
-    String url = 'http://10.20.20.174/fms/api/panarikan_api/proses_penarikan';
+      BuildContext context, String? _id, File? imgPenarikan) async {
+    print('File Path: ${imgPenarikan}');
+
+    if (_id == null || _id.isEmpty || imgPenarikan == null) {
+      _showAlertDialog(context, 'Gagal', 'ID atau gambar tidak valid.');
+      return;
+    }
+
+    String url = 'http://192.168.50.69/pola/api/penarikan_api/proses_penarikan?edit_id=$_id';
     Map<String, dynamic> data = {};
 
-    if (imgPenarikan != null) {
+    try {
       // Path untuk menyimpan gambar
       Directory appDir = await getApplicationDocumentsDirectory();
       String path = '${appDir.path}/doc/penarikan';
 
       // Buat directory jika belum ada
-      Directory(path).createSync(recursive: true);
+      Directory directory = Directory(path);
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
 
       // Konfigurasi dan upload gambar
       String fileName =
-          "penarikan_${id}_${DateTime.now().millisecondsSinceEpoch}.jpg";
+          "penarikan_${_id}_${DateTime.now().millisecondsSinceEpoch}.jpg";
       File file = await File(imgPenarikan.path).copy('$path/$fileName');
       data['img_penarikan'] = fileName;
 
       // Konfigurasi multipart request
       var request = http.MultipartRequest('POST', Uri.parse(url));
-      request.fields['edit_id'] = id;
+      // request.fields['edit_id'] = _id;
       request.files
           .add(await http.MultipartFile.fromPath('img_penarikan', file.path));
 
-      try {
-        var response = await request.send();
-        if (response.statusCode == 200) {
-          var responseData = await http.Response.fromStream(response);
-          var result = jsonDecode(responseData.body);
-          if (result['success']) {
-            _showAlertDialog(
-                context, 'Sukses', 'Proses Penarikan berhasil diperbarui');
-          } else {
-            _showAlertDialog(context, 'Gagal',
-                'Proses Penarikan gagal diperbarui: ${result['msg']}');
-          }
-        } else {
+      var response = await request.send();
+      if (response.statusCode == 200) {
+        var responseData = await http.Response.fromStream(response);
+        var result = jsonDecode(responseData.body);
+        if (result['success']) {
           _showAlertDialog(
-              context, 'Error', 'Failed to update: ${response.statusCode}');
+              context, 'Sukses', 'Proses Penarikan berhasil diperbarui');
+        } else {
+          _showAlertDialog(context, 'Gagal',
+              'Proses Penarikan gagal diperbarui: ${result['msg']}');
         }
-      } catch (e) {
-        _showAlertDialog(context, 'Error', 'Error during request: $e');
+      } else {
+        _showAlertDialog(
+            context, 'Error', 'Failed to update: ${response.statusCode}');
       }
-    } else {
-      _showAlertDialog(context, 'Gagal', 'Image not selected');
+    } catch (e) {
+      _showAlertDialog(context, 'Error', 'Error during request: $e');
     }
   }
 
@@ -216,9 +232,12 @@ class _EditWDState extends State<EditWD> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        appBar: AppBar(
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(20.0),
+          child: AppBar(
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+          ),
         ),
         backgroundColor: const Color(0xFFE4EDF3),
         body: Padding(
@@ -305,44 +324,71 @@ class _EditWDState extends State<EditWD> {
                             Expanded(
                               child: Container(
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey),
-                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: Colors.black54), // Border color
+                                  borderRadius: BorderRadius.circular(
+                                      8.0), // Border radius
                                 ),
-                                padding: const EdgeInsets.only(right: 36),
                                 child: Row(
                                   children: [
-                                    ElevatedButton(
-                                      style: ButtonStyle(
-                                        minimumSize:
-                                            WidgetStateProperty.all<Size>(
-                                                const Size(100, 50)),
-                                        shape: WidgetStateProperty.all<
-                                            RoundedRectangleBorder>(
-                                          const RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.only(
-                                              topLeft: Radius.circular(8.0),
-                                              bottomLeft: Radius.circular(8.0),
+                                    PopupMenuButton<String>(
+                                      onSelected: (value) {
+                                        if (value == 'camera') {
+                                          _capturePenarikanFoto();
+                                        } else if (value == 'file') {
+                                          _pickFile();
+                                        }
+                                      },
+                                      itemBuilder: (BuildContext context) =>
+                                          <PopupMenuEntry<String>>[
+                                        const PopupMenuItem<String>(
+                                          value: 'camera',
+                                          child: Text('Ambil Foto'),
+                                        ),
+                                        const PopupMenuItem<String>(
+                                          value: 'file',
+                                          child: Text('Pilih File'),
+                                        ),
+                                      ],
+                                      child: ElevatedButton(
+                                        style: ButtonStyle(
+                                          minimumSize:
+                                              WidgetStateProperty.all<Size>(
+                                                  const Size(100, 50)),
+                                          shape: WidgetStateProperty.all<
+                                              RoundedRectangleBorder>(
+                                            const RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.only(
+                                                topLeft: Radius.circular(8.0),
+                                                bottomLeft:
+                                                    Radius.circular(8.0),
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                      onPressed: _capturePenarikanFoto,
-                                      child: const Text(
-                                        'Pilih File',
-                                        style: TextStyle(color: Colors.black),
+                                        onPressed: null,
+                                        child: const Text(
+                                          'Pilih Input',
+                                          style: TextStyle(color: Colors.black),
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 16),
                                     Expanded(
-                                      child: _penarikanFoto != null
-                                          ? Text(
-                                              truncateFileName(path.basename(
-                                                  _penarikanFoto!.path)),
-                                              style:
-                                                  const TextStyle(fontSize: 16),
-                                            )
-                                          : const Text(
-                                              'Tidak ada file yang dipilih'),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal:
+                                                8.0), // Add padding inside the border
+                                        child: imgPenarikan != null
+                                            ? Text(
+                                                truncateFileName(path.basename(
+                                                    imgPenarikan!.path)),
+                                                style: const TextStyle(
+                                                    fontSize: 16),
+                                              )
+                                            : const Text(
+                                                'Tidak ada file yang dipilih'),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -555,7 +601,7 @@ class _EditWDState extends State<EditWD> {
                                 ),
                               ),
                               onPressed: () {
-                                prosesPenarikan;
+                                prosesPenarikan(context, _id, imgPenarikan);
                               },
                               child: const Text(
                                 'Proses',

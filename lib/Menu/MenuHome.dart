@@ -45,7 +45,7 @@ class _HomePageState extends State<MenuHome> {
   }
 
   Future<void> fetchPemasangan() async {
-    final url = 'http://10.20.20.174/fms/api/home_api/pemasangan';
+    final url = 'http://192.168.203.113/pola/api/home_api/pemasangan';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -102,7 +102,7 @@ class _HomePageState extends State<MenuHome> {
   // }
 
   Future<void> fetchstok() async {
-    final url = 'http://10.20.20.174/fms/api/home_api/stok';
+    final url = 'http://192.168.203.113/pola/api/home_api/stok';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {

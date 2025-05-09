@@ -113,7 +113,7 @@ class DetailPage extends StatefulWidget {
 class DetailPageState extends State<DetailPage> {
   Future<Pemasangan> fetchPenarikan(String id) async {
     final String apiUrl =
-        'http://10.20.20.174/fms/api/penarikan_api/laporan_detail/$id';
+        'http://192.168.50.69/pola/api/penarikan_api/laporan_detail/$id';
 
     print(id);
 
@@ -233,7 +233,6 @@ class DetailPageState extends State<DetailPage> {
                     buildInstallationStatusCard(detail),
                     buildDocumentationCard(detail),
                     buildTransactionCard(detail),
-                    buildWithDrawCard(detail),
                   ],
                 ),
               );
@@ -389,25 +388,6 @@ class DetailPageState extends State<DetailPage> {
                     'https://pola.inti.co.id/doc/pemasangan/${detail.fotoTransaksi3}'),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget buildWithDrawCard(Pemasangan detail) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Penarikan',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            buildImage(
-                'Foto Penarikan',
-                '	http://pola.inti.co.id/doc/penarikan/${detail.fotoPenarikan}',
-                '1.0'),
           ],
         ),
       ),
