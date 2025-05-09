@@ -67,9 +67,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyCd-AIfM7AvS54jBOb2eS2DyNoPRsrYhAE" />
 
         <provider
             android:name="io.flutter.plugins.imagepicker.ImagePickerFileProvider"
